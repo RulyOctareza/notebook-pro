@@ -20,11 +20,11 @@ Future<void> main() async {
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
-    );
+    ).timeout(const Duration(seconds: 4));
     firebaseReady = true;
   } catch (e, s) {
     developer.log(
-      'Firebase init failed — continuing offline-only',
+      'Firebase init failed/timed out — continuing offline-only',
       name: 'notebook_pro',
       error: e,
       stackTrace: s,
@@ -33,7 +33,16 @@ Future<void> main() async {
 
   final prefs = await SharedPreferences.getInstance();
   final db = AppDatabase();
-  await db.ensureProfile();
+  try {
+    await db.ensureProfile().timeout(const Duration(seconds: 4));
+  } catch (e, s) {
+    developer.log(
+      'Database ensureProfile timed out or failed',
+      name: 'notebook_pro',
+      error: e,
+      stackTrace: s,
+    );
+  }
 
   final container = ProviderContainer(
     overrides: [
@@ -45,9 +54,19 @@ Future<void> main() async {
 
   if (firebaseReady) {
     unawaited(
-      container.read(authServiceProvider).initializeGoogleSignIn().then((_) {
-        return container.read(syncServiceProvider).pushPendingChanges();
-      }),
+      container
+          .read(authServiceProvider)
+          .initializeGoogleSignIn()
+          .timeout(const Duration(seconds: 4))
+          .then((_) => container.read(syncServiceProvider).pushPendingChanges())
+          .catchError((e, s) {
+            developer.log(
+              'Background auth/sync init ignored failure',
+              name: 'notebook_pro',
+              error: e,
+              stackTrace: s,
+            );
+          }),
     );
   }
 
