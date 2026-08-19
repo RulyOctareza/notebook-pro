@@ -15,6 +15,7 @@ class NotesTable extends Table {
   BoolColumn get isDirty => boolean().withDefault(const Constant(true))();
   TextColumn get remoteId => text().nullable()();
   TextColumn get folderId => text().nullable()();
+  TextColumn get tags => text().withDefault(const Constant('[]'))();
 
   @override
   Set<Column> get primaryKey => {id};

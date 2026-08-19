@@ -9,12 +9,16 @@ class NoteEditorToolbar extends StatelessWidget {
     required this.controller,
     required this.onInsertLink,
     required this.onInsertImage,
+    this.onExport,
+    this.onCommandPalette,
     this.onAfterFormat,
   });
 
   final QuillController controller;
   final VoidCallback onInsertLink;
   final VoidCallback onInsertImage;
+  final VoidCallback? onExport;
+  final VoidCallback? onCommandPalette;
   final VoidCallback? onAfterFormat;
 
   @override
@@ -97,6 +101,21 @@ class NoteEditorToolbar extends StatelessWidget {
                     onAfterFormat?.call();
                   },
                 ),
+                if (onExport != null) ...[
+                  _Divider(),
+                  _ToolBtn(
+                    icon: Icons.ios_share_outlined,
+                    tooltip: 'Export Note (PDF, Markdown, TXT)',
+                    onPressed: onExport!,
+                  ),
+                ],
+                if (onCommandPalette != null) ...[
+                  _ToolBtn(
+                    icon: Icons.terminal_outlined,
+                    tooltip: 'Command Palette (⌘K)',
+                    onPressed: onCommandPalette!,
+                  ),
+                ],
               ],
             ),
           ),

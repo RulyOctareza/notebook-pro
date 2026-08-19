@@ -23,6 +23,7 @@ mixin _$Note {
   String get bodyDelta => throw _privateConstructorUsedError;
   String get plainTextPreview => throw _privateConstructorUsedError;
   List<String> get imagePaths => throw _privateConstructorUsedError;
+  List<String> get tags => throw _privateConstructorUsedError;
   bool get isPinned => throw _privateConstructorUsedError;
   int get sortIndex => throw _privateConstructorUsedError;
   DateTime get createdAt => throw _privateConstructorUsedError;
@@ -50,6 +51,7 @@ abstract class $NoteCopyWith<$Res> {
     String bodyDelta,
     String plainTextPreview,
     List<String> imagePaths,
+    List<String> tags,
     bool isPinned,
     int sortIndex,
     DateTime createdAt,
@@ -82,6 +84,7 @@ class _$NoteCopyWithImpl<$Res, $Val extends Note>
     Object? bodyDelta = null,
     Object? plainTextPreview = null,
     Object? imagePaths = null,
+    Object? tags = null,
     Object? isPinned = null,
     Object? sortIndex = null,
     Object? createdAt = null,
@@ -116,6 +119,10 @@ class _$NoteCopyWithImpl<$Res, $Val extends Note>
             imagePaths: null == imagePaths
                 ? _value.imagePaths
                 : imagePaths // ignore: cast_nullable_to_non_nullable
+                      as List<String>,
+            tags: null == tags
+                ? _value.tags
+                : tags // ignore: cast_nullable_to_non_nullable
                       as List<String>,
             isPinned: null == isPinned
                 ? _value.isPinned
@@ -170,6 +177,7 @@ abstract class _$$NoteImplCopyWith<$Res> implements $NoteCopyWith<$Res> {
     String bodyDelta,
     String plainTextPreview,
     List<String> imagePaths,
+    List<String> tags,
     bool isPinned,
     int sortIndex,
     DateTime createdAt,
@@ -199,6 +207,7 @@ class __$$NoteImplCopyWithImpl<$Res>
     Object? bodyDelta = null,
     Object? plainTextPreview = null,
     Object? imagePaths = null,
+    Object? tags = null,
     Object? isPinned = null,
     Object? sortIndex = null,
     Object? createdAt = null,
@@ -233,6 +242,10 @@ class __$$NoteImplCopyWithImpl<$Res>
         imagePaths: null == imagePaths
             ? _value._imagePaths
             : imagePaths // ignore: cast_nullable_to_non_nullable
+                  as List<String>,
+        tags: null == tags
+            ? _value._tags
+            : tags // ignore: cast_nullable_to_non_nullable
                   as List<String>,
         isPinned: null == isPinned
             ? _value.isPinned
@@ -281,6 +294,7 @@ class _$NoteImpl implements _Note {
     required this.bodyDelta,
     required this.plainTextPreview,
     final List<String> imagePaths = const <String>[],
+    final List<String> tags = const <String>[],
     this.isPinned = false,
     this.sortIndex = 0,
     required this.createdAt,
@@ -289,7 +303,8 @@ class _$NoteImpl implements _Note {
     this.isDirty = true,
     this.remoteId,
     this.folderId,
-  }) : _imagePaths = imagePaths;
+  }) : _imagePaths = imagePaths,
+       _tags = tags;
 
   @override
   final String id;
@@ -308,6 +323,15 @@ class _$NoteImpl implements _Note {
     if (_imagePaths is EqualUnmodifiableListView) return _imagePaths;
     // ignore: implicit_dynamic_type
     return EqualUnmodifiableListView(_imagePaths);
+  }
+
+  final List<String> _tags;
+  @override
+  @JsonKey()
+  List<String> get tags {
+    if (_tags is EqualUnmodifiableListView) return _tags;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_tags);
   }
 
   @override
@@ -332,7 +356,7 @@ class _$NoteImpl implements _Note {
 
   @override
   String toString() {
-    return 'Note(id: $id, title: $title, subtitle: $subtitle, bodyDelta: $bodyDelta, plainTextPreview: $plainTextPreview, imagePaths: $imagePaths, isPinned: $isPinned, sortIndex: $sortIndex, createdAt: $createdAt, updatedAt: $updatedAt, deletedAt: $deletedAt, isDirty: $isDirty, remoteId: $remoteId, folderId: $folderId)';
+    return 'Note(id: $id, title: $title, subtitle: $subtitle, bodyDelta: $bodyDelta, plainTextPreview: $plainTextPreview, imagePaths: $imagePaths, tags: $tags, isPinned: $isPinned, sortIndex: $sortIndex, createdAt: $createdAt, updatedAt: $updatedAt, deletedAt: $deletedAt, isDirty: $isDirty, remoteId: $remoteId, folderId: $folderId)';
   }
 
   @override
@@ -352,6 +376,7 @@ class _$NoteImpl implements _Note {
               other._imagePaths,
               _imagePaths,
             ) &&
+            const DeepCollectionEquality().equals(other._tags, _tags) &&
             (identical(other.isPinned, isPinned) ||
                 other.isPinned == isPinned) &&
             (identical(other.sortIndex, sortIndex) ||
@@ -378,6 +403,7 @@ class _$NoteImpl implements _Note {
     bodyDelta,
     plainTextPreview,
     const DeepCollectionEquality().hash(_imagePaths),
+    const DeepCollectionEquality().hash(_tags),
     isPinned,
     sortIndex,
     createdAt,
@@ -405,6 +431,7 @@ abstract class _Note implements Note {
     required final String bodyDelta,
     required final String plainTextPreview,
     final List<String> imagePaths,
+    final List<String> tags,
     final bool isPinned,
     final int sortIndex,
     required final DateTime createdAt,
@@ -427,6 +454,8 @@ abstract class _Note implements Note {
   String get plainTextPreview;
   @override
   List<String> get imagePaths;
+  @override
+  List<String> get tags;
   @override
   bool get isPinned;
   @override

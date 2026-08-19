@@ -61,4 +61,9 @@ class NoteRepositoryImpl implements NoteRepository {
   Stream<Map<String?, int>> watchNoteCountsByFolder() {
     return _db.watchNoteCountsByFolder();
   }
+
+  @override
+  Stream<Map<String, int>> watchAllTagsWithCounts() {
+    return _db.watchAllTagsWithCounts();
+  }
 }

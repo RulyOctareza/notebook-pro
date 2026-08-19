@@ -95,30 +95,79 @@ class _NoteListTileState extends State<NoteListTile> {
           child: Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.md,
-              vertical: 10,
+              vertical: 8,
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (widget.note.isPinned) ...[
-                  Icon(Icons.push_pin_rounded, size: 12, color: tertiary),
-                  const SizedBox(width: AppSpacing.xs),
-                ],
-                Expanded(
-                  child: Text(
-                    title,
+                Row(
+                  children: [
+                    if (widget.note.isPinned) ...[
+                      Icon(Icons.push_pin_rounded, size: 12, color: tertiary),
+                      const SizedBox(width: AppSpacing.xs),
+                    ],
+                    Expanded(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text(
+                      _relativeTime(widget.note.updatedAt),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: tertiary,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+                if (widget.note.plainTextPreview.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    widget.note.plainTextPreview.replaceAll('\n', ' '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyMedium,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: tertiary,
+                      fontSize: 12,
+                    ),
                   ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Text(
-                  _relativeTime(widget.note.updatedAt),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: tertiary,
-                    fontSize: 11,
+                ],
+                if (widget.note.tags.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 2,
+                    children: [
+                      for (final tag in widget.note.tags.take(3))
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary.withValues(
+                              alpha: 0.08,
+                            ),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            '#$tag',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              fontSize: 10,
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-                ),
+                ],
               ],
             ),
           ),

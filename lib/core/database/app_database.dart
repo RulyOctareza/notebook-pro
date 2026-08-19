@@ -25,7 +25,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -39,6 +39,9 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 3) {
         await m.addColumn(foldersTable, foldersTable.isPinned);
+      }
+      if (from < 4) {
+        await m.addColumn(notesTable, notesTable.tags);
       }
     },
   );
@@ -157,8 +160,33 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  /// Counts active notes grouped by tag name (lowercase).
+  Stream<Map<String, int>> watchAllTagsWithCounts() {
+    return (select(notesTable)..where((t) => t.deletedAt.isNull())).watch().map(
+      (rows) {
+        final counts = <String, int>{};
+        for (final row in rows) {
+          try {
+            final tags = (jsonDecode(row.tags) as List<dynamic>).cast<String>();
+            for (final tag in tags) {
+              final normalized = tag.toLowerCase().trim();
+              if (normalized.isNotEmpty) {
+                counts.update(normalized, (v) => v + 1, ifAbsent: () => 1);
+              }
+            }
+          } catch (_) {}
+        }
+        return counts;
+      },
+    );
+  }
+
   Note _noteFromRow(NotesTableData row) {
     final paths = (jsonDecode(row.imagePaths) as List<dynamic>).cast<String>();
+    List<String> tags = const [];
+    try {
+      tags = (jsonDecode(row.tags) as List<dynamic>).cast<String>();
+    } catch (_) {}
     return Note(
       id: row.id,
       title: row.title,
@@ -166,6 +194,7 @@ class AppDatabase extends _$AppDatabase {
       bodyDelta: row.bodyDelta,
       plainTextPreview: row.plainTextPreview,
       imagePaths: paths,
+      tags: tags,
       isPinned: row.isPinned,
       sortIndex: row.sortIndex,
       createdAt: row.createdAt,
@@ -185,6 +214,7 @@ class AppDatabase extends _$AppDatabase {
       bodyDelta: Value(note.bodyDelta),
       plainTextPreview: Value(note.plainTextPreview),
       imagePaths: Value(jsonEncode(note.imagePaths)),
+      tags: Value(jsonEncode(note.tags)),
       isPinned: Value(note.isPinned),
       sortIndex: Value(note.sortIndex),
       createdAt: Value(note.createdAt),

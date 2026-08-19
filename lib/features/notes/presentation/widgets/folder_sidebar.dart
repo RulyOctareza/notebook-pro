@@ -21,8 +21,10 @@ class FolderSidebar extends ConsumerWidget {
         ? AppColors.darkSelection
         : AppColors.lightSelection;
     final selected = ref.watch(selectedFolderIdProvider);
+    final selectedTag = ref.watch(selectedTagProvider);
     final folders = ref.watch(foldersProvider).valueOrNull ?? const [];
     final counts = ref.watch(noteCountsByFolderProvider).valueOrNull ?? {};
+    final tagsMap = ref.watch(allTagsProvider).valueOrNull ?? {};
 
     final allCount = counts.values.fold<int>(0, (a, b) => a + b);
     final inboxCount = counts[null] ?? 0;
@@ -77,11 +79,12 @@ class FolderSidebar extends ConsumerWidget {
                   icon: Icons.notes_outlined,
                   label: 'All Notes',
                   count: allCount,
-                  selected: selected == null,
+                  selected: selected == null && selectedTag == null,
                   selectionColor: selection,
                   // All Notes is a filter view — not a drop target.
                   onTap: () {
                     ref.read(selectedFolderIdProvider.notifier).state = null;
+                    ref.read(selectedTagProvider.notifier).state = null;
                     ref.read(selectedNoteIdProvider.notifier).state = null;
                   },
                 ),
@@ -89,13 +92,14 @@ class FolderSidebar extends ConsumerWidget {
                   icon: Icons.inbox_outlined,
                   label: 'Notes',
                   count: inboxCount,
-                  selected: selected == kInboxFolderId,
+                  selected: selected == kInboxFolderId && selectedTag == null,
                   selectionColor: selection,
                   acceptDrops: true,
                   onAcceptNote: (noteId) => moveNote(noteId, null),
                   onTap: () {
                     ref.read(selectedFolderIdProvider.notifier).state =
                         kInboxFolderId;
+                    ref.read(selectedTagProvider.notifier).state = null;
                     ref.read(selectedNoteIdProvider.notifier).state = null;
                   },
                 ),
@@ -119,7 +123,7 @@ class FolderSidebar extends ConsumerWidget {
                           : Icons.folder_outlined,
                       label: folder.name,
                       count: counts[folder.id] ?? 0,
-                      selected: selected == folder.id,
+                      selected: selected == folder.id && selectedTag == null,
                       selectionColor: selection,
                       isPinned: folder.isPinned,
                       acceptDrops: true,
@@ -127,6 +131,7 @@ class FolderSidebar extends ConsumerWidget {
                       onTap: () {
                         ref.read(selectedFolderIdProvider.notifier).state =
                             folder.id;
+                        ref.read(selectedTagProvider.notifier).state = null;
                         ref.read(selectedNoteIdProvider.notifier).state = null;
                       },
                       onPin: () => ref
@@ -134,6 +139,53 @@ class FolderSidebar extends ConsumerWidget {
                           .togglePin(folder.id),
                       onRename: () => _renameFolder(context, ref, folder),
                       onDelete: () => _deleteFolder(context, ref, folder),
+                    ),
+                ],
+                if (tagsMap.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.sm,
+                      AppSpacing.lg,
+                      AppSpacing.sm,
+                      AppSpacing.xs,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Tags',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        if (selectedTag != null)
+                          GestureDetector(
+                            onTap: () => ref.read(selectedTagProvider.notifier).state = null,
+                            child: Text(
+                              'Clear',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                fontSize: 10,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  for (final entry in tagsMap.entries)
+                    _TagRow(
+                      tag: entry.key,
+                      count: entry.value,
+                      selected: selectedTag == entry.key,
+                      selectionColor: selection,
+                      onTap: () {
+                        if (selectedTag == entry.key) {
+                          ref.read(selectedTagProvider.notifier).state = null;
+                        } else {
+                          ref.read(selectedTagProvider.notifier).state = entry.key;
+                        }
+                      },
                     ),
                 ],
               ],
@@ -414,3 +466,69 @@ class _FolderRowState extends State<_FolderRow> {
     );
   }
 }
+
+class _TagRow extends StatelessWidget {
+  const _TagRow({
+    required this.tag,
+    required this.count,
+    required this.selected,
+    required this.selectionColor,
+    required this.onTap,
+  });
+
+  final String tag;
+  final int count;
+  final bool selected;
+  final Color selectionColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Material(
+        color: selected ? selectionColor : Colors.transparent,
+        borderRadius: BorderRadius.circular(AppRadii.sm),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppRadii.sm),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: 6,
+            ),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppRadii.sm),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.tag,
+                  size: 14,
+                  color: selected ? theme.colorScheme.primary : Colors.grey,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    tag,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: selected
+                          ? theme.colorScheme.primary
+                          : theme.textTheme.bodyMedium?.color,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                    ),
+                  ),
+                ),
+                Text('$count', style: theme.textTheme.labelSmall),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+

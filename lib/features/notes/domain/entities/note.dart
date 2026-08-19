@@ -11,6 +11,7 @@ class Note with _$Note {
     required String bodyDelta,
     required String plainTextPreview,
     @Default(<String>[]) List<String> imagePaths,
+    @Default(<String>[]) List<String> tags,
     @Default(false) bool isPinned,
     @Default(0) int sortIndex,
     required DateTime createdAt,

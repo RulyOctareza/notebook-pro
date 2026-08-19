@@ -9,7 +9,9 @@ import 'package:notebook_pro/features/gamification/presentation/widgets/badge_un
 import 'package:notebook_pro/features/gamification/presentation/widgets/streak_badge.dart';
 import 'package:notebook_pro/features/notes/domain/entities/note_folder.dart';
 import 'package:notebook_pro/features/notes/presentation/providers/notes_providers.dart';
+import 'package:notebook_pro/features/notes/presentation/widgets/command_palette_dialog.dart';
 import 'package:notebook_pro/features/notes/presentation/widgets/empty_editor_state.dart';
+import 'package:notebook_pro/features/notes/presentation/widgets/export_note_dialog.dart';
 import 'package:notebook_pro/features/notes/presentation/widgets/folder_sidebar.dart';
 import 'package:notebook_pro/features/notes/presentation/widgets/note_editor_pane.dart';
 import 'package:notebook_pro/features/notes/presentation/widgets/note_list_tile.dart';
@@ -116,6 +118,19 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
     await _deleteNote(id);
   }
 
+  void _openCommandPalette() {
+    CommandPaletteDialog.show(context);
+  }
+
+  Future<void> _exportSelected() async {
+    final noteId = ref.read(selectedNoteIdProvider);
+    if (noteId == null) return;
+    final note = await ref.read(noteRepositoryProvider).getById(noteId);
+    if (note != null && mounted) {
+      await ExportNoteDialog.show(context, note);
+    }
+  }
+
   Future<void> _moveSelected() async {
     final noteId = ref.read(selectedNoteIdProvider);
     if (noteId == null) return;
@@ -179,6 +194,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
     final listVisible = ref.watch(noteListVisibleProvider);
     final panelLayout = ref.watch(panelLayoutProvider);
     final folderTitle = _folderTitle();
+    final selectedTag = ref.watch(selectedTagProvider);
 
     final zoomNotifier = ref.read(editorZoomProvider.notifier);
     final panelNotifier = ref.read(panelLayoutProvider.notifier);
@@ -188,6 +204,14 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
         const SingleActivator(LogicalKeyboardKey.keyN, meta: true): _createNote,
         const SingleActivator(LogicalKeyboardKey.keyN, control: true):
             _createNote,
+        const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
+            _openCommandPalette,
+        const SingleActivator(LogicalKeyboardKey.keyK, control: true):
+            _openCommandPalette,
+        const SingleActivator(LogicalKeyboardKey.keyE, meta: true):
+            _exportSelected,
+        const SingleActivator(LogicalKeyboardKey.keyE, control: true):
+            _exportSelected,
         const SingleActivator(LogicalKeyboardKey.keyD, meta: true):
             _deleteSelected,
         const SingleActivator(LogicalKeyboardKey.keyD, control: true):
@@ -328,6 +352,26 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
                                                   visualDensity:
                                                       VisualDensity.compact,
                                                 ),
+                                                IconButton(
+                                                  tooltip: 'Command Palette (⌘K)',
+                                                  onPressed: _openCommandPalette,
+                                                  icon: const Icon(
+                                                    Icons.terminal_outlined,
+                                                    size: 18,
+                                                  ),
+                                                  visualDensity:
+                                                      VisualDensity.compact,
+                                                ),
+                                                IconButton(
+                                                  tooltip: 'New note',
+                                                  onPressed: _createNote,
+                                                  icon: const Icon(
+                                                    Icons.add,
+                                                    size: 18,
+                                                  ),
+                                                  visualDensity:
+                                                      VisualDensity.compact,
+                                                ),
                                                 const SizedBox(
                                                   width: AppSpacing.xs,
                                                 ),
@@ -451,15 +495,49 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
                                           AppSpacing.md,
                                           AppSpacing.xs,
                                         ),
-                                        child: Align(
-                                          alignment: Alignment.centerLeft,
-                                          child: Text(
-                                            folderTitle,
-                                            style: theme.textTheme.labelSmall
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.w600,
+                                        child: Row(
+                                          children: [
+                                            Text(
+                                              folderTitle,
+                                              style: theme.textTheme.labelSmall
+                                                  ?.copyWith(
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                            ),
+                                            if (selectedTag != null) ...[
+                                              const SizedBox(width: AppSpacing.sm),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 6,
+                                                  vertical: 2,
                                                 ),
-                                          ),
+                                                decoration: BoxDecoration(
+                                                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                                                  borderRadius: BorderRadius.circular(AppRadii.sm),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Icon(Icons.tag, size: 11, color: theme.colorScheme.primary),
+                                                    const SizedBox(width: 2),
+                                                    Text(
+                                                      selectedTag,
+                                                      style: theme.textTheme.labelSmall?.copyWith(
+                                                        color: theme.colorScheme.primary,
+                                                        fontWeight: FontWeight.w600,
+                                                        fontSize: 11,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    InkWell(
+                                                      onTap: () => ref.read(selectedTagProvider.notifier).state = null,
+                                                      child: Icon(Icons.close, size: 12, color: theme.colorScheme.primary),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ],
                                         ),
                                       ),
                                       Expanded(
@@ -529,6 +607,14 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
                                                   size: 14,
                                                 ),
                                                 label: const Text('Pin'),
+                                              ),
+                                              TextButton.icon(
+                                                onPressed: _exportSelected,
+                                                icon: const Icon(
+                                                  Icons.ios_share_outlined,
+                                                  size: 14,
+                                                ),
+                                                label: const Text('Export'),
                                               ),
                                               TextButton.icon(
                                                 onPressed: _moveSelected,
@@ -639,12 +725,31 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
                                       const Spacer(),
                                       const AccountButton(),
                                       const StreakBadge(),
-                                      IconButton(
-                                        tooltip: 'New note',
-                                        onPressed: _createNote,
-                                        icon: const Icon(Icons.add, size: 18),
-                                        visualDensity: VisualDensity.compact,
-                                      ),
+                                       IconButton(
+                                         tooltip: 'Command Palette (⌘K)',
+                                         onPressed: _openCommandPalette,
+                                         icon: const Icon(
+                                           Icons.terminal_outlined,
+                                           size: 18,
+                                         ),
+                                         visualDensity: VisualDensity.compact,
+                                       ),
+                                       if (selectedId != null)
+                                         IconButton(
+                                           tooltip: 'Export note (PDF, MD, TXT)',
+                                           onPressed: _exportSelected,
+                                           icon: const Icon(
+                                             Icons.ios_share_outlined,
+                                             size: 18,
+                                           ),
+                                           visualDensity: VisualDensity.compact,
+                                         ),
+                                       IconButton(
+                                         tooltip: 'New note',
+                                         onPressed: _createNote,
+                                         icon: const Icon(Icons.add, size: 18),
+                                         visualDensity: VisualDensity.compact,
+                                       ),
                                       IconButton(
                                         tooltip: switch (themeMode) {
                                           ThemeMode.light => 'Light',

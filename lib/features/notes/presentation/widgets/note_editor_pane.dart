@@ -22,8 +22,11 @@ import 'package:notebook_pro/features/gamification/presentation/providers/gamifi
 import 'package:notebook_pro/features/notes/domain/entities/note.dart';
 import 'package:notebook_pro/features/notes/domain/note_content.dart';
 import 'package:notebook_pro/features/notes/domain/repositories/note_repository.dart';
+import 'package:notebook_pro/features/notes/domain/tag_extractor.dart';
 import 'package:notebook_pro/features/notes/domain/title_from_body.dart';
 import 'package:notebook_pro/features/notes/presentation/providers/notes_providers.dart';
+import 'package:notebook_pro/features/notes/presentation/widgets/command_palette_dialog.dart';
+import 'package:notebook_pro/features/notes/presentation/widgets/export_note_dialog.dart';
 import 'package:notebook_pro/features/notes/presentation/widgets/note_editor_toolbar.dart';
 import 'package:notebook_pro/features/settings/presentation/providers/editor_zoom_provider.dart';
 
@@ -220,11 +223,18 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane>
     _lastWordCount = words;
     final isFirstPersist = !_everPersisted;
 
+    final tags = extractNoteTags(
+      title: title,
+      plainBody: plain,
+      explicitTags: note.tags,
+    );
+
     final updated = note.copyWith(
       title: title,
       subtitle: null,
       bodyDelta: jsonEncode(quill.document.toDelta().toJson()),
       plainTextPreview: plain.length > 160 ? plain.substring(0, 160) : plain,
+      tags: tags,
       updatedAt: DateTime.now().toUtc(),
       isDirty: true,
     );
@@ -523,6 +533,8 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane>
             controller: quill,
             onInsertLink: _insertLink,
             onInsertImage: _insertImage,
+            onExport: () => ExportNoteDialog.show(context, _note!),
+            onCommandPalette: () => CommandPaletteDialog.show(context),
             onAfterFormat: () => _editorFocus.requestFocus(),
           ),
           Expanded(
@@ -583,13 +595,70 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane>
                                   onChanged: _onTitleChanged,
                                 ),
                                 const SizedBox(height: AppSpacing.sm),
-                                Text(
-                                  'Edited $edited · $words words'
-                                  '${zoomLabel ?? ''}',
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: tertiary,
-                                  ),
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Edited $edited · $words words'
+                                      '${zoomLabel ?? ''}',
+                                      style: theme.textTheme.labelSmall?.copyWith(
+                                        color: tertiary,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    IconButton(
+                                      tooltip: 'Export note (PDF, MD, TXT)',
+                                      icon: const Icon(Icons.ios_share_outlined, size: 16),
+                                      visualDensity: VisualDensity.compact,
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                                      onPressed: () => ExportNoteDialog.show(context, note),
+                                    ),
+                                  ],
                                 ),
+                                if (note.tags.isNotEmpty) ...[
+                                  const SizedBox(height: AppSpacing.xs),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    children: [
+                                      for (final tag in note.tags)
+                                        InkWell(
+                                          borderRadius: BorderRadius.circular(AppRadii.sm),
+                                          onTap: () {
+                                            ref.read(selectedTagProvider.notifier).state = tag;
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                                              borderRadius: BorderRadius.circular(AppRadii.sm),
+                                              border: Border.all(
+                                                color: theme.colorScheme.primary.withValues(alpha: 0.2),
+                                              ),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.tag, size: 11, color: theme.colorScheme.primary),
+                                                const SizedBox(width: 2),
+                                                Text(
+                                                  tag,
+                                                  style: theme.textTheme.labelSmall?.copyWith(
+                                                    color: theme.colorScheme.primary,
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 11,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ],
                                 const SizedBox(height: AppSpacing.xl),
                                 Expanded(
                                   child: QuillEditor(

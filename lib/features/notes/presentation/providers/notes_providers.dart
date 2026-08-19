@@ -64,6 +64,13 @@ final notesListProvider = StreamProvider<List<Note>>((ref) {
   return repo.watchNotes(folderId: selected);
 });
 
+/// `null` = no tag filter, otherwise lowercase tag name without `#`.
+final selectedTagProvider = StateProvider<String?>((ref) => null);
+
+final allTagsProvider = StreamProvider<Map<String, int>>((ref) {
+  return ref.watch(noteRepositoryProvider).watchAllTagsWithCounts();
+});
+
 final selectedNoteIdProvider = StateProvider<String?>((ref) => null);
 
 final searchQueryProvider = StateProvider<String>((ref) => '');
@@ -71,14 +78,29 @@ final searchQueryProvider = StateProvider<String>((ref) => '');
 final filteredNotesProvider = Provider<AsyncValue<List<Note>>>((ref) {
   final notes = ref.watch(notesListProvider);
   final query = ref.watch(searchQueryProvider).trim().toLowerCase();
+  final selectedTag = ref.watch(selectedTagProvider);
+
   return notes.whenData((list) {
-    if (query.isEmpty) return list;
-    return list
-        .where(
-          (n) =>
-              n.title.toLowerCase().contains(query) ||
-              n.plainTextPreview.toLowerCase().contains(query),
-        )
-        .toList();
+    var result = list;
+    if (selectedTag != null && selectedTag.isNotEmpty) {
+      result = result
+          .where(
+            (n) => n.tags.any(
+              (t) => t.toLowerCase().trim() == selectedTag.toLowerCase().trim(),
+            ),
+          )
+          .toList();
+    }
+    if (query.isNotEmpty) {
+      result = result
+          .where(
+            (n) =>
+                n.title.toLowerCase().contains(query) ||
+                n.plainTextPreview.toLowerCase().contains(query) ||
+                n.tags.any((t) => t.toLowerCase().contains(query)),
+          )
+          .toList();
+    }
+    return result;
   });
 });

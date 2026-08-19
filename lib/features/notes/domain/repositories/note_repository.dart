@@ -9,4 +9,5 @@ abstract class NoteRepository {
   Future<void> togglePin(String id);
   Future<void> moveToFolder(String noteId, String? folderId);
   Stream<Map<String?, int>> watchNoteCountsByFolder();
+  Stream<Map<String, int>> watchAllTagsWithCounts();
 }

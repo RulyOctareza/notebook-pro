@@ -171,6 +171,16 @@ class $NotesTableTable extends NotesTable
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _tagsMeta = const VerificationMeta('tags');
+  @override
+  late final GeneratedColumn<String> tags = GeneratedColumn<String>(
+    'tags',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -187,6 +197,7 @@ class $NotesTableTable extends NotesTable
     isDirty,
     remoteId,
     folderId,
+    tags,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -292,6 +303,12 @@ class $NotesTableTable extends NotesTable
         folderId.isAcceptableOrUnknown(data['folder_id']!, _folderIdMeta),
       );
     }
+    if (data.containsKey('tags')) {
+      context.handle(
+        _tagsMeta,
+        tags.isAcceptableOrUnknown(data['tags']!, _tagsMeta),
+      );
+    }
     return context;
   }
 
@@ -357,6 +374,10 @@ class $NotesTableTable extends NotesTable
         DriftSqlType.string,
         data['${effectivePrefix}folder_id'],
       ),
+      tags: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tags'],
+      )!,
     );
   }
 
@@ -381,6 +402,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
   final bool isDirty;
   final String? remoteId;
   final String? folderId;
+  final String tags;
   const NotesTableData({
     required this.id,
     required this.title,
@@ -396,6 +418,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
     required this.isDirty,
     this.remoteId,
     this.folderId,
+    required this.tags,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -422,6 +445,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
     if (!nullToAbsent || folderId != null) {
       map['folder_id'] = Variable<String>(folderId);
     }
+    map['tags'] = Variable<String>(tags);
     return map;
   }
 
@@ -449,6 +473,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
       folderId: folderId == null && nullToAbsent
           ? const Value.absent()
           : Value(folderId),
+      tags: Value(tags),
     );
   }
 
@@ -472,6 +497,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
       isDirty: serializer.fromJson<bool>(json['isDirty']),
       remoteId: serializer.fromJson<String?>(json['remoteId']),
       folderId: serializer.fromJson<String?>(json['folderId']),
+      tags: serializer.fromJson<String>(json['tags']),
     );
   }
   @override
@@ -492,6 +518,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
       'isDirty': serializer.toJson<bool>(isDirty),
       'remoteId': serializer.toJson<String?>(remoteId),
       'folderId': serializer.toJson<String?>(folderId),
+      'tags': serializer.toJson<String>(tags),
     };
   }
 
@@ -510,6 +537,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
     bool? isDirty,
     Value<String?> remoteId = const Value.absent(),
     Value<String?> folderId = const Value.absent(),
+    String? tags,
   }) => NotesTableData(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -525,6 +553,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
     isDirty: isDirty ?? this.isDirty,
     remoteId: remoteId.present ? remoteId.value : this.remoteId,
     folderId: folderId.present ? folderId.value : this.folderId,
+    tags: tags ?? this.tags,
   );
   NotesTableData copyWithCompanion(NotesTableCompanion data) {
     return NotesTableData(
@@ -546,6 +575,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
       isDirty: data.isDirty.present ? data.isDirty.value : this.isDirty,
       remoteId: data.remoteId.present ? data.remoteId.value : this.remoteId,
       folderId: data.folderId.present ? data.folderId.value : this.folderId,
+      tags: data.tags.present ? data.tags.value : this.tags,
     );
   }
 
@@ -565,7 +595,8 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
           ..write('deletedAt: $deletedAt, ')
           ..write('isDirty: $isDirty, ')
           ..write('remoteId: $remoteId, ')
-          ..write('folderId: $folderId')
+          ..write('folderId: $folderId, ')
+          ..write('tags: $tags')
           ..write(')'))
         .toString();
   }
@@ -586,6 +617,7 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
     isDirty,
     remoteId,
     folderId,
+    tags,
   );
   @override
   bool operator ==(Object other) =>
@@ -604,7 +636,8 @@ class NotesTableData extends DataClass implements Insertable<NotesTableData> {
           other.deletedAt == this.deletedAt &&
           other.isDirty == this.isDirty &&
           other.remoteId == this.remoteId &&
-          other.folderId == this.folderId);
+          other.folderId == this.folderId &&
+          other.tags == this.tags);
 }
 
 class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
@@ -622,6 +655,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
   final Value<bool> isDirty;
   final Value<String?> remoteId;
   final Value<String?> folderId;
+  final Value<String> tags;
   final Value<int> rowid;
   const NotesTableCompanion({
     this.id = const Value.absent(),
@@ -638,6 +672,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
     this.isDirty = const Value.absent(),
     this.remoteId = const Value.absent(),
     this.folderId = const Value.absent(),
+    this.tags = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   NotesTableCompanion.insert({
@@ -655,6 +690,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
     this.isDirty = const Value.absent(),
     this.remoteId = const Value.absent(),
     this.folderId = const Value.absent(),
+    this.tags = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        bodyDelta = Value(bodyDelta),
@@ -675,6 +711,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
     Expression<bool>? isDirty,
     Expression<String>? remoteId,
     Expression<String>? folderId,
+    Expression<String>? tags,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -692,6 +729,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
       if (isDirty != null) 'is_dirty': isDirty,
       if (remoteId != null) 'remote_id': remoteId,
       if (folderId != null) 'folder_id': folderId,
+      if (tags != null) 'tags': tags,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -711,6 +749,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
     Value<bool>? isDirty,
     Value<String?>? remoteId,
     Value<String?>? folderId,
+    Value<String>? tags,
     Value<int>? rowid,
   }) {
     return NotesTableCompanion(
@@ -728,6 +767,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
       isDirty: isDirty ?? this.isDirty,
       remoteId: remoteId ?? this.remoteId,
       folderId: folderId ?? this.folderId,
+      tags: tags ?? this.tags,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -777,6 +817,9 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
     if (folderId.present) {
       map['folder_id'] = Variable<String>(folderId.value);
     }
+    if (tags.present) {
+      map['tags'] = Variable<String>(tags.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -800,6 +843,7 @@ class NotesTableCompanion extends UpdateCompanion<NotesTableData> {
           ..write('isDirty: $isDirty, ')
           ..write('remoteId: $remoteId, ')
           ..write('folderId: $folderId, ')
+          ..write('tags: $tags, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1984,6 +2028,7 @@ typedef $$NotesTableTableCreateCompanionBuilder =
       Value<bool> isDirty,
       Value<String?> remoteId,
       Value<String?> folderId,
+      Value<String> tags,
       Value<int> rowid,
     });
 typedef $$NotesTableTableUpdateCompanionBuilder =
@@ -2002,6 +2047,7 @@ typedef $$NotesTableTableUpdateCompanionBuilder =
       Value<bool> isDirty,
       Value<String?> remoteId,
       Value<String?> folderId,
+      Value<String> tags,
       Value<int> rowid,
     });
 
@@ -2081,6 +2127,11 @@ class $$NotesTableTableFilterComposer
 
   ColumnFilters<String> get folderId => $composableBuilder(
     column: $table.folderId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tags => $composableBuilder(
+    column: $table.tags,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -2163,6 +2214,11 @@ class $$NotesTableTableOrderingComposer
     column: $table.folderId,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get tags => $composableBuilder(
+    column: $table.tags,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$NotesTableTableAnnotationComposer
@@ -2219,6 +2275,9 @@ class $$NotesTableTableAnnotationComposer
 
   GeneratedColumn<String> get folderId =>
       $composableBuilder(column: $table.folderId, builder: (column) => column);
+
+  GeneratedColumn<String> get tags =>
+      $composableBuilder(column: $table.tags, builder: (column) => column);
 }
 
 class $$NotesTableTableTableManager
@@ -2266,6 +2325,7 @@ class $$NotesTableTableTableManager
                 Value<bool> isDirty = const Value.absent(),
                 Value<String?> remoteId = const Value.absent(),
                 Value<String?> folderId = const Value.absent(),
+                Value<String> tags = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => NotesTableCompanion(
                 id: id,
@@ -2282,6 +2342,7 @@ class $$NotesTableTableTableManager
                 isDirty: isDirty,
                 remoteId: remoteId,
                 folderId: folderId,
+                tags: tags,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -2300,6 +2361,7 @@ class $$NotesTableTableTableManager
                 Value<bool> isDirty = const Value.absent(),
                 Value<String?> remoteId = const Value.absent(),
                 Value<String?> folderId = const Value.absent(),
+                Value<String> tags = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => NotesTableCompanion.insert(
                 id: id,
@@ -2316,6 +2378,7 @@ class $$NotesTableTableTableManager
                 isDirty: isDirty,
                 remoteId: remoteId,
                 folderId: folderId,
+                tags: tags,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
