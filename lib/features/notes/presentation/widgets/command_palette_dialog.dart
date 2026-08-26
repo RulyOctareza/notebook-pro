@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,10 +9,15 @@ import 'package:intl/intl.dart';
 import 'package:notebook_pro/core/theme/app_colors.dart';
 import 'package:notebook_pro/core/theme/app_spacing.dart';
 import 'package:notebook_pro/features/notes/domain/entities/note.dart';
+import 'package:notebook_pro/features/notes/domain/note_importer.dart';
 import 'package:notebook_pro/features/notes/presentation/providers/notes_providers.dart';
 import 'package:notebook_pro/features/notes/presentation/widgets/export_note_dialog.dart';
+import 'package:notebook_pro/features/settings/presentation/providers/app_prefs_providers.dart';
 import 'package:notebook_pro/features/settings/presentation/providers/editor_zoom_provider.dart';
+import 'package:notebook_pro/features/settings/presentation/providers/folder_sidebar_visible_provider.dart';
+import 'package:notebook_pro/features/settings/presentation/providers/note_list_visible_provider.dart';
 import 'package:notebook_pro/features/settings/presentation/providers/theme_mode_provider.dart';
+import 'package:notebook_pro/features/settings/presentation/widgets/settings_dialog.dart';
 
 class CommandPaletteDialog extends ConsumerStatefulWidget {
   const CommandPaletteDialog({super.key});
@@ -168,6 +176,64 @@ class _CommandPaletteDialogState extends ConsumerState<CommandPaletteDialog> {
         onRun: () {
           Navigator.of(context).pop();
           ref.read(editorZoomProvider.notifier).reset();
+        },
+      ),
+      _PaletteCommand(
+        id: 'focus_mode',
+        title: 'Toggle Focus Mode',
+        subtitle: 'Hide sidebars for distraction-free writing',
+        icon: Icons.fullscreen,
+        shortcut: '⌘⇧F',
+        onRun: () {
+          Navigator.of(context).pop();
+          final next = !ref.read(focusModeProvider);
+          ref.read(focusModeProvider.notifier).setEnabled(next);
+          ref.read(folderSidebarVisibleProvider.notifier).setVisible(!next);
+          ref.read(noteListVisibleProvider.notifier).setVisible(!next);
+        },
+      ),
+      _PaletteCommand(
+        id: 'settings',
+        title: 'Open Settings',
+        subtitle: 'Theme, sort, backup, weekly goal',
+        icon: Icons.settings_outlined,
+        shortcut: '⌘,',
+        onRun: () {
+          Navigator.of(context).pop();
+          SettingsDialog.show(context);
+        },
+      ),
+      _PaletteCommand(
+        id: 'find_in_note',
+        title: 'Find in Note',
+        subtitle: 'Search within the active note',
+        icon: Icons.search,
+        shortcut: '⌘F',
+        onRun: () {
+          Navigator.of(context).pop();
+          ref.read(findInNoteVisibleProvider.notifier).state = true;
+        },
+      ),
+      _PaletteCommand(
+        id: 'import_markdown',
+        title: 'Import Markdown',
+        subtitle: 'Create a note from a .md file',
+        icon: Icons.upload_file_outlined,
+        onRun: () async {
+          Navigator.of(context).pop();
+          final file = await openFile(
+            acceptedTypeGroups: [
+              const XTypeGroup(
+                label: 'Markdown',
+                extensions: ['md', 'markdown', 'txt'],
+              ),
+            ],
+          );
+          if (file == null) return;
+          final content = await File(file.path).readAsString();
+          final note = NoteImporter.fromMarkdown(content);
+          await ref.read(noteRepositoryProvider).update(note);
+          ref.read(selectedNoteIdProvider.notifier).state = note.id;
         },
       ),
     ];

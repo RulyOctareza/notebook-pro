@@ -61,7 +61,14 @@ class _BadgeUnlockToastState extends State<BadgeUnlockToast>
       IconKind.firstNote => Icons.edit_note_outlined,
       IconKind.streak3 => Icons.local_fire_department_outlined,
       IconKind.streak7 => Icons.emoji_events_outlined,
+      IconKind.streak30 => Icons.whatshot_outlined,
+      IconKind.streak100 => Icons.military_tech_outlined,
       IconKind.words1000 => Icons.menu_book_outlined,
+      IconKind.words5000 => Icons.auto_stories_outlined,
+      IconKind.words10000 => Icons.library_books_outlined,
+      IconKind.notes10 => Icons.sticky_note_2_outlined,
+      IconKind.notes50 => Icons.collections_bookmark_outlined,
+      IconKind.notes100 => Icons.workspace_premium_outlined,
     };
 
     return SlideTransition(

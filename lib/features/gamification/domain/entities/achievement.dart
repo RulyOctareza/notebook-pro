@@ -17,4 +17,16 @@ class Achievement with _$Achievement {
 }
 
 /// Icon kinds avoid asset files for MVP — mapped to Material icons in UI.
-enum IconKind { firstNote, streak3, streak7, words1000 }
+enum IconKind {
+  firstNote,
+  streak3,
+  streak7,
+  streak30,
+  streak100,
+  words1000,
+  words5000,
+  words10000,
+  notes10,
+  notes50,
+  notes100,
+}

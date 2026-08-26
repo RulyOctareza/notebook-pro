@@ -1,7 +1,8 @@
 import 'package:notebook_pro/core/sync/sync_status.dart';
 
-/// Future Firebase sync entry point. MVP uses [NoopSyncService].
+/// Offline-first cloud sync entry point.
 abstract class SyncService {
   Future<void> pushPendingChanges();
   Stream<SyncStatus> get status;
+  DateTime? get lastSyncedAt;
 }

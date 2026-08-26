@@ -38,7 +38,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('home shell shows empty state', (tester) async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({'onboarding_complete': true});
     final prefs = await SharedPreferences.getInstance();
     final db = AppDatabase(NativeDatabase.memory());
     await db.ensureProfile();
@@ -52,7 +52,7 @@ void main() {
   });
 
   testWidgets('theme cycle toggles mode', (tester) async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({'onboarding_complete': true});
     final prefs = await SharedPreferences.getInstance();
     final db = AppDatabase(NativeDatabase.memory());
     await db.ensureProfile();

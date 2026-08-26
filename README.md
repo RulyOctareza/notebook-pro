@@ -2,12 +2,16 @@
 
 Lightweight offline-first desktop notepad for macOS, Windows, and Linux — inspired by Apple Notes.
 
-## Features (MVP)
+## Features
 
-- Two-pane note list + rich text editor
-- Title, subtitle, headings, bold/italic, links, images
-- Offline SQLite storage (Drift) with sync stub for future Firebase
-- Daily writing streak + achievement badges
+- Two-pane note list + rich text editor (Quill)
+- Folders, tags, pin sections, Trash / restore
+- Title, headings, bold/italic, links, images, find-in-note
+- Markdown import + export (PDF / MD / TXT / print)
+- Offline SQLite (Drift) with Firebase sync when signed in
+- Sync status indicator + last-write-wins conflict handling
+- Daily writing streak, weekly word goal, achievement badges
+- Focus mode, command palette, settings, local JSON backup
 - Light / Dark / System theme
 
 ## Run
@@ -27,4 +31,5 @@ flutter test
 ## Architecture
 
 Clean Architecture + feature folders (`notes`, `gamification`, `settings`).
-Local-first via Drift; `NoopSyncService` is the extension point for Firebase later.
+Local-first via Drift; `FirebaseSyncService` (or `NoopSyncService` offline)
+syncs under `users/{uid}/…` after Google sign-in.

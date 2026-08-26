@@ -16,12 +16,16 @@ import 'package:notebook_pro/features/notes/presentation/widgets/folder_sidebar.
 import 'package:notebook_pro/features/notes/presentation/widgets/note_editor_pane.dart';
 import 'package:notebook_pro/features/notes/presentation/widgets/note_list_tile.dart';
 import 'package:notebook_pro/features/notes/presentation/widgets/panel_resize_handle.dart';
+import 'package:notebook_pro/features/notes/presentation/widgets/sync_status_indicator.dart';
+import 'package:notebook_pro/features/settings/presentation/providers/app_prefs_providers.dart';
 import 'package:notebook_pro/features/settings/presentation/providers/editor_zoom_provider.dart';
 import 'package:notebook_pro/features/settings/presentation/providers/folder_sidebar_visible_provider.dart';
 import 'package:notebook_pro/features/settings/presentation/providers/note_list_visible_provider.dart';
 import 'package:notebook_pro/features/settings/presentation/providers/panel_layout_provider.dart';
 import 'package:notebook_pro/features/settings/presentation/providers/theme_mode_provider.dart';
 import 'package:notebook_pro/features/settings/presentation/widgets/account_button.dart';
+import 'package:notebook_pro/features/settings/presentation/widgets/onboarding_overlay.dart';
+import 'package:notebook_pro/features/settings/presentation/widgets/settings_dialog.dart';
 
 class HomeShellScreen extends ConsumerStatefulWidget {
   const HomeShellScreen({super.key});
@@ -84,11 +88,42 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
   }
 
   Future<void> _deleteNote(String id) async {
+    final inTrash = ref.read(selectedFolderIdProvider) == kTrashFolderId;
+    if (inTrash) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Delete permanently?'),
+          content: const Text('This note will be permanently removed.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(ctx).colorScheme.error,
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Delete forever'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed == true) {
+        await ref.read(noteRepositoryProvider).hardDelete(id);
+        if (ref.read(selectedNoteIdProvider) == id) {
+          ref.read(selectedNoteIdProvider.notifier).state = null;
+        }
+      }
+      return;
+    }
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete note?'),
-        content: const Text('This note will be removed from your list.'),
+        title: const Text('Move to Trash?'),
+        content: const Text('You can restore this note from Trash later.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -99,7 +134,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
               backgroundColor: Theme.of(ctx).colorScheme.error,
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
+            child: const Text('Move to Trash'),
           ),
         ],
       ),
@@ -109,6 +144,13 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
       if (ref.read(selectedNoteIdProvider) == id) {
         ref.read(selectedNoteIdProvider.notifier).state = null;
       }
+    }
+  }
+
+  Future<void> _restoreNote(String id) async {
+    await ref.read(noteRepositoryProvider).restore(id);
+    if (ref.read(selectedNoteIdProvider) == id) {
+      ref.read(selectedNoteIdProvider.notifier).state = null;
     }
   }
 
@@ -172,12 +214,25 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
     final selected = ref.watch(selectedFolderIdProvider);
     if (selected == null) return 'All Notes';
     if (selected == kInboxFolderId) return 'Notes';
+    if (selected == kTrashFolderId) return 'Trash';
     final folders = ref.watch(foldersProvider).valueOrNull ?? const [];
     return folders
             .where((f) => f.id == selected)
             .map((f) => f.name)
             .firstOrNull ??
         'Folder';
+  }
+
+  void _toggleFocusMode() {
+    final next = !ref.read(focusModeProvider);
+    ref.read(focusModeProvider.notifier).setEnabled(next);
+    if (next) {
+      ref.read(folderSidebarVisibleProvider.notifier).setVisible(false);
+      ref.read(noteListVisibleProvider.notifier).setVisible(false);
+    } else {
+      ref.read(folderSidebarVisibleProvider.notifier).setVisible(true);
+      ref.read(noteListVisibleProvider.notifier).setVisible(true);
+    }
   }
 
   @override
@@ -195,6 +250,9 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
     final panelLayout = ref.watch(panelLayoutProvider);
     final folderTitle = _folderTitle();
     final selectedTag = ref.watch(selectedTagProvider);
+    final inTrash = ref.watch(selectedFolderIdProvider) == kTrashFolderId;
+    final focusMode = ref.watch(focusModeProvider);
+    final onboardingDone = ref.watch(onboardingCompleteProvider);
 
     final zoomNotifier = ref.read(editorZoomProvider.notifier);
     final panelNotifier = ref.read(panelLayoutProvider.notifier);
@@ -216,6 +274,32 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
             _deleteSelected,
         const SingleActivator(LogicalKeyboardKey.keyD, control: true):
             _deleteSelected,
+        const SingleActivator(LogicalKeyboardKey.keyF, meta: true): () {
+          ref.read(findInNoteVisibleProvider.notifier).state = true;
+        },
+        const SingleActivator(LogicalKeyboardKey.keyF, control: true): () {
+          ref.read(findInNoteVisibleProvider.notifier).state = true;
+        },
+        const SingleActivator(LogicalKeyboardKey.keyF, meta: true, shift: true):
+            _toggleFocusMode,
+        const SingleActivator(
+          LogicalKeyboardKey.keyF,
+          control: true,
+          shift: true,
+        ): _toggleFocusMode,
+        const SingleActivator(LogicalKeyboardKey.comma, meta: true): () {
+          SettingsDialog.show(context);
+        },
+        const SingleActivator(LogicalKeyboardKey.comma, control: true): () {
+          SettingsDialog.show(context);
+        },
+        const SingleActivator(LogicalKeyboardKey.escape): () {
+          if (ref.read(focusModeProvider)) {
+            _toggleFocusMode();
+          } else if (ref.read(findInNoteVisibleProvider)) {
+            ref.read(findInNoteVisibleProvider.notifier).state = false;
+          }
+        },
         // View zoom (display scale) — Cmd/Ctrl + / -
         const SingleActivator(LogicalKeyboardKey.equal, meta: true):
             zoomNotifier.zoomIn,
@@ -255,20 +339,22 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
             LayoutBuilder(
               builder: (context, constraints) {
                 final totalWidth = constraints.maxWidth;
-                final folderWidth = foldersVisible
+                final effectiveFoldersVisible = foldersVisible && !focusMode;
+                final effectiveListVisible = listVisible && !focusMode;
+                final folderWidth = effectiveFoldersVisible
                     ? _clampFolderWidth(
                         desired: panelLayout.folderWidth,
                         totalWidth: totalWidth,
                         listWidth: panelLayout.listWidth,
-                        listVisible: listVisible,
+                        listVisible: effectiveListVisible,
                       )
                     : 0.0;
-                final listWidth = listVisible
+                final listWidth = effectiveListVisible
                     ? _clampListWidth(
                         desired: panelLayout.listWidth,
                         totalWidth: totalWidth,
                         folderWidth: folderWidth,
-                        foldersVisible: foldersVisible,
+                        foldersVisible: effectiveFoldersVisible,
                       )
                     : 0.0;
 
@@ -279,7 +365,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
                         duration: const Duration(milliseconds: 180),
                         curve: Curves.easeOutCubic,
                         alignment: Alignment.centerLeft,
-                        child: foldersVisible
+                        child: effectiveFoldersVisible
                             ? SizedBox(
                                 width: folderWidth,
                                 child: FolderSidebar(
@@ -293,7 +379,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
                             : const SizedBox.shrink(),
                       ),
                     ),
-                    if (foldersVisible)
+                    if (effectiveFoldersVisible)
                       PanelResizeHandle(
                         onDragDelta: (dx) {
                           final current = ref
@@ -304,7 +390,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
                               desired: current + dx,
                               totalWidth: totalWidth,
                               listWidth: listWidth,
-                              listVisible: listVisible,
+                              listVisible: effectiveListVisible,
                             ),
                           );
                         },
@@ -321,7 +407,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
                         duration: const Duration(milliseconds: 180),
                         curve: Curves.easeOutCubic,
                         alignment: Alignment.centerLeft,
-                        child: listVisible
+                        child: effectiveListVisible
                             ? SizedBox(
                                 width: listWidth,
                                 child: ColoredBox(
@@ -353,8 +439,10 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
                                                       VisualDensity.compact,
                                                 ),
                                                 IconButton(
-                                                  tooltip: 'Command Palette (⌘K)',
-                                                  onPressed: _openCommandPalette,
+                                                  tooltip:
+                                                      'Command Palette (⌘K)',
+                                                  onPressed:
+                                                      _openCommandPalette,
                                                   icon: const Icon(
                                                     Icons.terminal_outlined,
                                                     size: 18,
@@ -378,9 +466,10 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
                                               ],
                                               Expanded(
                                                 child: TextField(
-                                                  controller: _searchController,
-                                                  style:
-                                                      theme.textTheme.bodySmall,
+                                                  controller:
+                                                      _searchController,
+                                                  style: theme
+                                                      .textTheme.bodySmall,
                                                   decoration: InputDecoration(
                                                     hintText:
                                                         'Search in $folderTitle',
@@ -400,85 +489,134 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
                                                     filled: true,
                                                     fillColor: canvas,
                                                     contentPadding:
-                                                        const EdgeInsets.symmetric(
-                                                          horizontal: 8,
-                                                          vertical: 8,
-                                                        ),
-                                                    border: OutlineInputBorder(
+                                                        const EdgeInsets
+                                                            .symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 8,
+                                                    ),
+                                                    border:
+                                                        OutlineInputBorder(
                                                       borderRadius:
-                                                          BorderRadius.circular(
-                                                            AppRadii.sm,
-                                                          ),
+                                                          BorderRadius
+                                                              .circular(
+                                                        AppRadii.sm,
+                                                      ),
                                                       borderSide:
                                                           BorderSide.none,
                                                     ),
                                                   ),
-                                                  onChanged: (v) =>
-                                                      ref
-                                                              .read(
-                                                                searchQueryProvider
-                                                                    .notifier,
-                                                              )
-                                                              .state =
-                                                          v,
+                                                  onChanged: (v) => ref
+                                                          .read(
+                                                            searchQueryProvider
+                                                                .notifier,
+                                                          )
+                                                          .state =
+                                                      v,
                                                 ),
                                               ),
                                               const SizedBox(
                                                 width: AppSpacing.sm,
                                               ),
-                                              const AccountButton(),
-                                              const StreakBadge(),
-                                              const SizedBox(
-                                                width: AppSpacing.xs,
-                                              ),
-                                              IconButton(
-                                                tooltip: 'New note',
-                                                onPressed: _createNote,
-                                                icon: const Icon(
-                                                  Icons.add,
-                                                  size: 18,
+                                              Flexible(
+                                                child: SingleChildScrollView(
+                                                  scrollDirection:
+                                                      Axis.horizontal,
+                                                  reverse: true,
+                                                  child: Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      const SyncStatusIndicator(),
+                                                      const AccountButton(),
+                                                      const StreakBadge(),
+                                                      IconButton(
+                                                        tooltip:
+                                                            'Settings (⌘,)',
+                                                        onPressed: () =>
+                                                            SettingsDialog
+                                                                .show(
+                                                          context,
+                                                        ),
+                                                        icon: const Icon(
+                                                          Icons
+                                                              .settings_outlined,
+                                                          size: 18,
+                                                        ),
+                                                        visualDensity:
+                                                            VisualDensity
+                                                                .compact,
+                                                      ),
+                                                      IconButton(
+                                                        tooltip: 'New note',
+                                                        onPressed:
+                                                            _createNote,
+                                                        icon: const Icon(
+                                                          Icons.add,
+                                                          size: 18,
+                                                        ),
+                                                        visualDensity:
+                                                            VisualDensity
+                                                                .compact,
+                                                      ),
+                                                      IconButton(
+                                                        tooltip: switch (
+                                                          themeMode) {
+                                                          ThemeMode.light =>
+                                                            'Light',
+                                                          ThemeMode.dark =>
+                                                            'Dark',
+                                                          ThemeMode.system =>
+                                                            'System',
+                                                        },
+                                                        onPressed: () => ref
+                                                            .read(
+                                                              themeModeProvider
+                                                                  .notifier,
+                                                            )
+                                                            .cycle(),
+                                                        icon: Icon(
+                                                          switch (themeMode) {
+                                                            ThemeMode
+                                                                .light =>
+                                                              Icons
+                                                                  .light_mode_outlined,
+                                                            ThemeMode
+                                                                .dark =>
+                                                              Icons
+                                                                  .dark_mode_outlined,
+                                                            ThemeMode
+                                                                .system =>
+                                                              Icons
+                                                                  .brightness_auto_outlined,
+                                                          },
+                                                          size: 18,
+                                                        ),
+                                                        visualDensity:
+                                                            VisualDensity
+                                                                .compact,
+                                                      ),
+                                                      IconButton(
+                                                        tooltip:
+                                                            'Hide notes list',
+                                                        onPressed: () => ref
+                                                            .read(
+                                                              noteListVisibleProvider
+                                                                  .notifier,
+                                                            )
+                                                            .setVisible(
+                                                              false,
+                                                            ),
+                                                        icon: const Icon(
+                                                          Icons.menu_open,
+                                                          size: 18,
+                                                        ),
+                                                        visualDensity:
+                                                            VisualDensity
+                                                                .compact,
+                                                      ),
+                                                    ],
+                                                  ),
                                                 ),
-                                                visualDensity:
-                                                    VisualDensity.compact,
-                                              ),
-                                              IconButton(
-                                                tooltip: switch (themeMode) {
-                                                  ThemeMode.light => 'Light',
-                                                  ThemeMode.dark => 'Dark',
-                                                  ThemeMode.system => 'System',
-                                                },
-                                                onPressed: () => ref
-                                                    .read(
-                                                      themeModeProvider
-                                                          .notifier,
-                                                    )
-                                                    .cycle(),
-                                                icon: Icon(switch (themeMode) {
-                                                  ThemeMode.light =>
-                                                    Icons.light_mode_outlined,
-                                                  ThemeMode.dark =>
-                                                    Icons.dark_mode_outlined,
-                                                  ThemeMode.system =>
-                                                    Icons
-                                                        .brightness_auto_outlined,
-                                                }, size: 18),
-                                                visualDensity:
-                                                    VisualDensity.compact,
-                                              ),
-                                              IconButton(
-                                                tooltip: 'Hide notes list',
-                                                onPressed: () => ref
-                                                    .read(
-                                                      noteListVisibleProvider
-                                                          .notifier,
-                                                    )
-                                                    .setVisible(false),
-                                                icon: const Icon(
-                                                  Icons.menu_open,
-                                                  size: 18,
-                                                ),
-                                                visualDensity:
-                                                    VisualDensity.compact,
                                               ),
                                             ],
                                           ),
@@ -499,39 +637,114 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
                                           children: [
                                             Text(
                                               folderTitle,
-                                              style: theme.textTheme.labelSmall
+                                              style: theme
+                                                  .textTheme.labelSmall
                                                   ?.copyWith(
-                                                    fontWeight: FontWeight.w600,
+                                                    fontWeight:
+                                                        FontWeight.w600,
                                                   ),
                                             ),
+                                            const Spacer(),
+                                            PopupMenuButton<NoteSortOption>(
+                                              tooltip: 'Sort notes',
+                                              icon: const Icon(
+                                                Icons.sort,
+                                                size: 16,
+                                              ),
+                                              onSelected: (v) => ref
+                                                  .read(
+                                                    noteSortProvider.notifier,
+                                                  )
+                                                  .setSort(v),
+                                              itemBuilder: (ctx) => const [
+                                                PopupMenuItem(
+                                                  value: NoteSortOption
+                                                      .updatedDesc,
+                                                  child: Text(
+                                                    'Newest updated',
+                                                  ),
+                                                ),
+                                                PopupMenuItem(
+                                                  value: NoteSortOption
+                                                      .updatedAsc,
+                                                  child: Text(
+                                                    'Oldest updated',
+                                                  ),
+                                                ),
+                                                PopupMenuItem(
+                                                  value: NoteSortOption
+                                                      .createdDesc,
+                                                  child: Text(
+                                                    'Newest created',
+                                                  ),
+                                                ),
+                                                PopupMenuItem(
+                                                  value:
+                                                      NoteSortOption.titleAsc,
+                                                  child: Text('Title A–Z'),
+                                                ),
+                                              ],
+                                            ),
                                             if (selectedTag != null) ...[
-                                              const SizedBox(width: AppSpacing.sm),
+                                              const SizedBox(
+                                                width: AppSpacing.sm,
+                                              ),
                                               Container(
-                                                padding: const EdgeInsets.symmetric(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
                                                   horizontal: 6,
                                                   vertical: 2,
                                                 ),
                                                 decoration: BoxDecoration(
-                                                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                                                  borderRadius: BorderRadius.circular(AppRadii.sm),
+                                                  color: theme
+                                                      .colorScheme.primary
+                                                      .withValues(alpha: 0.1),
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                    AppRadii.sm,
+                                                  ),
                                                 ),
                                                 child: Row(
-                                                  mainAxisSize: MainAxisSize.min,
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
                                                   children: [
-                                                    Icon(Icons.tag, size: 11, color: theme.colorScheme.primary),
+                                                    Icon(
+                                                      Icons.tag,
+                                                      size: 11,
+                                                      color: theme
+                                                          .colorScheme
+                                                          .primary,
+                                                    ),
                                                     const SizedBox(width: 2),
                                                     Text(
                                                       selectedTag,
-                                                      style: theme.textTheme.labelSmall?.copyWith(
-                                                        color: theme.colorScheme.primary,
-                                                        fontWeight: FontWeight.w600,
+                                                      style: theme
+                                                          .textTheme
+                                                          .labelSmall
+                                                          ?.copyWith(
+                                                        color: theme
+                                                            .colorScheme
+                                                            .primary,
+                                                        fontWeight:
+                                                            FontWeight.w600,
                                                         fontSize: 11,
                                                       ),
                                                     ),
                                                     const SizedBox(width: 4),
                                                     InkWell(
-                                                      onTap: () => ref.read(selectedTagProvider.notifier).state = null,
-                                                      child: Icon(Icons.close, size: 12, color: theme.colorScheme.primary),
+                                                      onTap: () => ref
+                                                          .read(
+                                                            selectedTagProvider
+                                                                .notifier,
+                                                          )
+                                                          .state = null,
+                                                      child: Icon(
+                                                        Icons.close,
+                                                        size: 12,
+                                                        color: theme
+                                                            .colorScheme
+                                                            .primary,
+                                                      ),
                                                     ),
                                                   ],
                                                 ),
@@ -544,7 +757,8 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
                                         child: notesAsync.when(
                                           loading: () => const Center(
                                             child:
-                                                CircularProgressIndicator.adaptive(),
+                                                CircularProgressIndicator
+                                                    .adaptive(),
                                           ),
                                           error: (e, _) =>
                                               Center(child: Text('$e')),
@@ -552,38 +766,127 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
                                             if (notes.isEmpty) {
                                               return Center(
                                                 child: Text(
-                                                  'No notes here',
-                                                  style:
-                                                      theme.textTheme.bodySmall,
+                                                  inTrash
+                                                      ? 'Trash is empty'
+                                                      : 'No notes here',
+                                                  style: theme
+                                                      .textTheme.bodySmall,
                                                 ),
                                               );
                                             }
-                                            return ListView.builder(
-                                              itemCount: notes.length,
-                                              itemBuilder: (context, index) {
-                                                final note = notes[index];
-                                                return NoteListTile(
-                                                  note: note,
-                                                  selected:
-                                                      note.id == selectedId,
-                                                  onTap: () {
-                                                    ref
+                                            if (inTrash) {
+                                              return ListView.builder(
+                                                itemCount: notes.length,
+                                                itemBuilder:
+                                                    (context, index) {
+                                                  final note = notes[index];
+                                                  return NoteListTile(
+                                                    note: note,
+                                                    selected:
+                                                        note.id == selectedId,
+                                                    onTap: () {
+                                                      ref
+                                                          .read(
+                                                            selectedNoteIdProvider
+                                                                .notifier,
+                                                          )
+                                                          .state = note.id;
+                                                    },
+                                                    onPin: () {},
+                                                    onDelete: () =>
+                                                        _deleteNote(note.id),
+                                                  );
+                                                },
+                                              );
+                                            }
+                                            final pinned = notes
+                                                .where((n) => n.isPinned)
+                                                .toList();
+                                            final others = notes
+                                                .where((n) => !n.isPinned)
+                                                .toList();
+                                            return ListView(
+                                              children: [
+                                                if (pinned.isNotEmpty) ...[
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets
+                                                            .fromLTRB(
+                                                      AppSpacing.md,
+                                                      AppSpacing.sm,
+                                                      AppSpacing.md,
+                                                      AppSpacing.xs,
+                                                    ),
+                                                    child: Text(
+                                                      'Pinned',
+                                                      style: theme
+                                                          .textTheme
+                                                          .labelSmall,
+                                                    ),
+                                                  ),
+                                                  for (final note in pinned)
+                                                    NoteListTile(
+                                                      note: note,
+                                                      selected: note.id ==
+                                                          selectedId,
+                                                      onTap: () {
+                                                        ref
+                                                            .read(
+                                                              selectedNoteIdProvider
+                                                                  .notifier,
+                                                            )
+                                                            .state = note.id;
+                                                      },
+                                                      onPin: () => ref
+                                                          .read(
+                                                            noteRepositoryProvider,
+                                                          )
+                                                          .togglePin(note.id),
+                                                      onDelete: () =>
+                                                          _deleteNote(
+                                                            note.id,
+                                                          ),
+                                                    ),
+                                                  if (others.isNotEmpty)
+                                                    Padding(
+                                                      padding:
+                                                          const EdgeInsets
+                                                              .fromLTRB(
+                                                        AppSpacing.md,
+                                                        AppSpacing.md,
+                                                        AppSpacing.md,
+                                                        AppSpacing.xs,
+                                                      ),
+                                                      child: Text(
+                                                        'Notes',
+                                                        style: theme
+                                                            .textTheme
+                                                            .labelSmall,
+                                                      ),
+                                                    ),
+                                                ],
+                                                for (final note in others)
+                                                  NoteListTile(
+                                                    note: note,
+                                                    selected: note.id ==
+                                                        selectedId,
+                                                    onTap: () {
+                                                      ref
+                                                          .read(
+                                                            selectedNoteIdProvider
+                                                                .notifier,
+                                                          )
+                                                          .state = note.id;
+                                                    },
+                                                    onPin: () => ref
                                                         .read(
-                                                          selectedNoteIdProvider
-                                                              .notifier,
+                                                          noteRepositoryProvider,
                                                         )
-                                                        .state = note
-                                                        .id;
-                                                  },
-                                                  onPin: () => ref
-                                                      .read(
-                                                        noteRepositoryProvider,
-                                                      )
-                                                      .togglePin(note.id),
-                                                  onDelete: () =>
-                                                      _deleteNote(note.id),
-                                                );
-                                              },
+                                                        .togglePin(note.id),
+                                                    onDelete: () =>
+                                                        _deleteNote(note.id),
+                                                  ),
+                                              ],
                                             );
                                           },
                                         ),
@@ -596,50 +899,81 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
                                           child: Wrap(
                                             spacing: 4,
                                             children: [
-                                              TextButton.icon(
-                                                onPressed: () => ref
-                                                    .read(
-                                                      noteRepositoryProvider,
-                                                    )
-                                                    .togglePin(selectedId),
-                                                icon: const Icon(
-                                                  Icons.push_pin_outlined,
-                                                  size: 14,
+                                              if (inTrash) ...[
+                                                TextButton.icon(
+                                                  onPressed: () =>
+                                                      _restoreNote(
+                                                    selectedId,
+                                                  ),
+                                                  icon: const Icon(
+                                                    Icons.restore,
+                                                    size: 14,
+                                                  ),
+                                                  label: const Text('Restore'),
                                                 ),
-                                                label: const Text('Pin'),
-                                              ),
-                                              TextButton.icon(
-                                                onPressed: _exportSelected,
-                                                icon: const Icon(
-                                                  Icons.ios_share_outlined,
-                                                  size: 14,
-                                                ),
-                                                label: const Text('Export'),
-                                              ),
-                                              TextButton.icon(
-                                                onPressed: _moveSelected,
-                                                icon: const Icon(
-                                                  Icons.drive_file_move_outline,
-                                                  size: 14,
-                                                ),
-                                                label: const Text('Move'),
-                                              ),
-                                              TextButton.icon(
-                                                onPressed: _deleteSelected,
-                                                icon: Icon(
-                                                  Icons.delete_outline,
-                                                  size: 14,
-                                                  color:
-                                                      theme.colorScheme.error,
-                                                ),
-                                                label: Text(
-                                                  'Delete',
-                                                  style: TextStyle(
-                                                    color:
-                                                        theme.colorScheme.error,
+                                                TextButton.icon(
+                                                  onPressed: _deleteSelected,
+                                                  icon: Icon(
+                                                    Icons.delete_forever,
+                                                    size: 14,
+                                                    color: theme
+                                                        .colorScheme.error,
+                                                  ),
+                                                  label: Text(
+                                                    'Delete forever',
+                                                    style: TextStyle(
+                                                      color: theme
+                                                          .colorScheme.error,
+                                                    ),
                                                   ),
                                                 ),
-                                              ),
+                                              ] else ...[
+                                                TextButton.icon(
+                                                  onPressed: () => ref
+                                                      .read(
+                                                        noteRepositoryProvider,
+                                                      )
+                                                      .togglePin(selectedId),
+                                                  icon: const Icon(
+                                                    Icons.push_pin_outlined,
+                                                    size: 14,
+                                                  ),
+                                                  label: const Text('Pin'),
+                                                ),
+                                                TextButton.icon(
+                                                  onPressed: _exportSelected,
+                                                  icon: const Icon(
+                                                    Icons.ios_share_outlined,
+                                                    size: 14,
+                                                  ),
+                                                  label: const Text('Export'),
+                                                ),
+                                                TextButton.icon(
+                                                  onPressed: _moveSelected,
+                                                  icon: const Icon(
+                                                    Icons
+                                                        .drive_file_move_outline,
+                                                    size: 14,
+                                                  ),
+                                                  label: const Text('Move'),
+                                                ),
+                                                TextButton.icon(
+                                                  onPressed: _deleteSelected,
+                                                  icon: Icon(
+                                                    Icons.delete_outline,
+                                                    size: 14,
+                                                    color: theme
+                                                        .colorScheme.error,
+                                                  ),
+                                                  label: Text(
+                                                    'Trash',
+                                                    style: TextStyle(
+                                                      color: theme
+                                                          .colorScheme.error,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
                                             ],
                                           ),
                                         ),
@@ -650,18 +984,17 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
                             : const SizedBox.shrink(),
                       ),
                     ),
-                    if (listVisible)
+                    if (effectiveListVisible)
                       PanelResizeHandle(
                         onDragDelta: (dx) {
-                          final current = ref
-                              .read(panelLayoutProvider)
-                              .listWidth;
+                          final current =
+                              ref.read(panelLayoutProvider).listWidth;
                           panelNotifier.setListWidth(
                             _clampListWidth(
                               desired: current + dx,
                               totalWidth: totalWidth,
                               folderWidth: folderWidth,
-                              foldersVisible: foldersVisible,
+                              foldersVisible: effectiveFoldersVisible,
                             ),
                           );
                         },
@@ -676,7 +1009,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
                     Expanded(
                       child: Column(
                         children: [
-                          if (!listVisible)
+                          if (!effectiveListVisible || focusMode)
                             SizedBox(
                               height: AppLayout.listHeaderHeight,
                               child: DecoratedBox(
@@ -694,62 +1027,102 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
                                   ),
                                   child: Row(
                                     children: [
-                                      if (!foldersVisible)
+                                      if (focusMode)
                                         IconButton(
-                                          tooltip: 'Show folders',
+                                          tooltip: 'Exit focus mode (Esc)',
+                                          onPressed: _toggleFocusMode,
+                                          icon: const Icon(
+                                            Icons.fullscreen_exit,
+                                            size: 18,
+                                          ),
+                                          visualDensity:
+                                              VisualDensity.compact,
+                                        )
+                                      else ...[
+                                        if (!foldersVisible)
+                                          IconButton(
+                                            tooltip: 'Show folders',
+                                            onPressed: () => ref
+                                                .read(
+                                                  folderSidebarVisibleProvider
+                                                      .notifier,
+                                                )
+                                                .setVisible(true),
+                                            icon: const Icon(
+                                              Icons.menu_rounded,
+                                              size: 18,
+                                            ),
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                          ),
+                                        IconButton(
+                                          tooltip: 'Show notes list',
                                           onPressed: () => ref
                                               .read(
-                                                folderSidebarVisibleProvider
+                                                noteListVisibleProvider
                                                     .notifier,
                                               )
                                               .setVisible(true),
                                           icon: const Icon(
-                                            Icons.menu_rounded,
+                                            Icons.view_agenda_outlined,
                                             size: 18,
                                           ),
-                                          visualDensity: VisualDensity.compact,
+                                          visualDensity:
+                                              VisualDensity.compact,
                                         ),
+                                      ],
+                                      const Spacer(),
+                                      const SyncStatusIndicator(),
+                                      const AccountButton(),
+                                      if (!focusMode) const StreakBadge(),
                                       IconButton(
-                                        tooltip: 'Show notes list',
-                                        onPressed: () => ref
-                                            .read(
-                                              noteListVisibleProvider.notifier,
-                                            )
-                                            .setVisible(true),
-                                        icon: const Icon(
-                                          Icons.view_agenda_outlined,
+                                        tooltip: 'Focus mode (⌘⇧F)',
+                                        onPressed: _toggleFocusMode,
+                                        icon: Icon(
+                                          focusMode
+                                              ? Icons.fullscreen_exit
+                                              : Icons.fullscreen,
                                           size: 18,
                                         ),
                                         visualDensity: VisualDensity.compact,
                                       ),
-                                      const Spacer(),
-                                      const AccountButton(),
-                                      const StreakBadge(),
-                                       IconButton(
-                                         tooltip: 'Command Palette (⌘K)',
-                                         onPressed: _openCommandPalette,
-                                         icon: const Icon(
-                                           Icons.terminal_outlined,
-                                           size: 18,
-                                         ),
-                                         visualDensity: VisualDensity.compact,
-                                       ),
-                                       if (selectedId != null)
-                                         IconButton(
-                                           tooltip: 'Export note (PDF, MD, TXT)',
-                                           onPressed: _exportSelected,
-                                           icon: const Icon(
-                                             Icons.ios_share_outlined,
-                                             size: 18,
-                                           ),
-                                           visualDensity: VisualDensity.compact,
-                                         ),
-                                       IconButton(
-                                         tooltip: 'New note',
-                                         onPressed: _createNote,
-                                         icon: const Icon(Icons.add, size: 18),
-                                         visualDensity: VisualDensity.compact,
-                                       ),
+                                      IconButton(
+                                        tooltip: 'Settings (⌘,)',
+                                        onPressed: () =>
+                                            SettingsDialog.show(context),
+                                        icon: const Icon(
+                                          Icons.settings_outlined,
+                                          size: 18,
+                                        ),
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                      IconButton(
+                                        tooltip: 'Command Palette (⌘K)',
+                                        onPressed: _openCommandPalette,
+                                        icon: const Icon(
+                                          Icons.terminal_outlined,
+                                          size: 18,
+                                        ),
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                      if (selectedId != null)
+                                        IconButton(
+                                          tooltip:
+                                              'Export note (PDF, MD, TXT)',
+                                          onPressed: _exportSelected,
+                                          icon: const Icon(
+                                            Icons.ios_share_outlined,
+                                            size: 18,
+                                          ),
+                                          visualDensity:
+                                              VisualDensity.compact,
+                                        ),
+                                      IconButton(
+                                        tooltip: 'New note',
+                                        onPressed: _createNote,
+                                        icon: const Icon(Icons.add, size: 18),
+                                        visualDensity: VisualDensity.compact,
+                                      ),
                                       IconButton(
                                         tooltip: switch (themeMode) {
                                           ThemeMode.light => 'Light',
@@ -803,6 +1176,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
                   },
                 ),
               ),
+            if (!onboardingDone) const OnboardingOverlay(),
           ],
         ),
       ),

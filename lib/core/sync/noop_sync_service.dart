@@ -6,5 +6,10 @@ class NoopSyncService implements SyncService {
   Future<void> pushPendingChanges() async {}
 
   @override
-  Stream<SyncStatus> get status => Stream.value(SyncStatus.synced);
+  Stream<SyncStatus> get status async* {
+    yield SyncStatus.synced;
+  }
+
+  @override
+  DateTime? get lastSyncedAt => null;
 }

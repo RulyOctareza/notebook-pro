@@ -26,7 +26,9 @@ class FirebaseSyncService implements SyncService {
   final FirebaseFirestore _firestore;
   final _status = StreamController<SyncStatus>.broadcast();
   SyncStatus _current = SyncStatus.pending;
+  DateTime? _lastSyncedAt;
   bool _running = false;
+  bool _hadConflict = false;
 
   @override
   Stream<SyncStatus> get status async* {
@@ -34,13 +36,15 @@ class FirebaseSyncService implements SyncService {
     yield* _status.stream;
   }
 
+  @override
+  DateTime? get lastSyncedAt => _lastSyncedAt;
+
   void _setStatus(SyncStatus next) {
     _current = next;
     if (!_status.isClosed) _status.add(next);
   }
 
   Future<User?> _ensureUser() async {
-    // Cloud sync requires a signed-in account (Google). No silent anonymous.
     final existing = _auth.currentUser;
     if (existing == null || existing.isAnonymous) {
       _setStatus(SyncStatus.offline);
@@ -53,6 +57,7 @@ class FirebaseSyncService implements SyncService {
   Future<void> pushPendingChanges() async {
     if (_running) return;
     _running = true;
+    _hadConflict = false;
     _setStatus(SyncStatus.pending);
     try {
       final user = await _ensureUser();
@@ -61,19 +66,19 @@ class FirebaseSyncService implements SyncService {
       final uid = user.uid;
       final userRoot = _firestore.collection('users').doc(uid);
 
-      // Folders: full upsert (small set).
       final folders = await _db.allFolders();
-      final folderBatch = _firestore.batch();
-      for (final folder in folders) {
-        folderBatch.set(
-          userRoot.collection('folders').doc(folder.id),
-          _folderToMap(folder),
-          SetOptions(merge: true),
-        );
+      if (folders.isNotEmpty) {
+        final folderBatch = _firestore.batch();
+        for (final folder in folders) {
+          folderBatch.set(
+            userRoot.collection('folders').doc(folder.id),
+            _folderToMap(folder),
+            SetOptions(merge: true),
+          );
+        }
+        await folderBatch.commit();
       }
-      await folderBatch.commit();
 
-      // Notes: only dirty rows.
       final dirty = await _db.dirtyNotes();
       for (final note in dirty) {
         await userRoot.collection('notes').doc(note.id).set(
@@ -83,11 +88,11 @@ class FirebaseSyncService implements SyncService {
         await _db.markNoteClean(note.id, remoteId: note.id);
       }
 
-      // Pull remote notes/folders (last-write-wins by updatedAt).
       await _pullFolders(userRoot);
       await _pullNotes(userRoot);
 
-      _setStatus(SyncStatus.synced);
+      _lastSyncedAt = DateTime.now().toUtc();
+      _setStatus(_hadConflict ? SyncStatus.conflict : SyncStatus.synced);
     } catch (e, s) {
       developer.log(
         'Sync failed',
@@ -102,7 +107,9 @@ class FirebaseSyncService implements SyncService {
     }
   }
 
-  Future<void> _pullFolders(DocumentReference<Map<String, dynamic>> userRoot) async {
+  Future<void> _pullFolders(
+    DocumentReference<Map<String, dynamic>> userRoot,
+  ) async {
     final snap = await userRoot.collection('folders').get();
     final local = {for (final f in await _db.allFolders()) f.id: f};
     for (final doc in snap.docs) {
@@ -114,17 +121,36 @@ class FirebaseSyncService implements SyncService {
     }
   }
 
-  Future<void> _pullNotes(DocumentReference<Map<String, dynamic>> userRoot) async {
+  Future<void> _pullNotes(
+    DocumentReference<Map<String, dynamic>> userRoot,
+  ) async {
     final snap = await userRoot.collection('notes').get();
     for (final doc in snap.docs) {
       final remote = _noteFromMap(doc.id, doc.data());
       final existing = await _db.getNoteById(remote.id);
-      if (existing == null ||
-          remote.updatedAt.isAfter(existing.updatedAt) ||
-          (existing.isDirty == false &&
-              remote.deletedAt != null &&
-              existing.deletedAt == null)) {
-        await _db.upsertNote(remote.copyWith(isDirty: false, remoteId: remote.id));
+
+      if (existing == null) {
+        await _db.upsertNote(
+          remote.copyWith(isDirty: false, remoteId: remote.id),
+        );
+        continue;
+      }
+
+      // Local dirty edits always win until pushed; signal conflict if remote
+      // is also newer so the UI can hint that a remote change was deferred.
+      if (existing.isDirty) {
+        if (remote.updatedAt.isAfter(existing.updatedAt)) {
+          _hadConflict = true;
+        }
+        continue;
+      }
+
+      final remoteDelete =
+          remote.deletedAt != null && existing.deletedAt == null;
+      if (remote.updatedAt.isAfter(existing.updatedAt) || remoteDelete) {
+        await _db.upsertNote(
+          remote.copyWith(isDirty: false, remoteId: remote.id),
+        );
       }
     }
   }
@@ -143,9 +169,11 @@ class FirebaseSyncService implements SyncService {
       name: data['name'] as String? ?? 'Folder',
       sortIndex: (data['sortIndex'] as num?)?.toInt() ?? 0,
       isPinned: data['isPinned'] as bool? ?? false,
-      createdAt: DateTime.tryParse(data['createdAt'] as String? ?? '')?.toUtc() ??
+      createdAt:
+          DateTime.tryParse(data['createdAt'] as String? ?? '')?.toUtc() ??
           DateTime.now().toUtc(),
-      updatedAt: DateTime.tryParse(data['updatedAt'] as String? ?? '')?.toUtc() ??
+      updatedAt:
+          DateTime.tryParse(data['updatedAt'] as String? ?? '')?.toUtc() ??
           DateTime.now().toUtc(),
     );
   }
@@ -155,8 +183,8 @@ class FirebaseSyncService implements SyncService {
     'subtitle': note.subtitle,
     'bodyDelta': note.bodyDelta,
     'plainTextPreview': note.plainTextPreview,
-    // Local absolute image paths are device-specific; sync text first.
     'imagePaths': note.imagePaths,
+    'tags': note.tags,
     'isPinned': note.isPinned,
     'sortIndex': note.sortIndex,
     'createdAt': note.createdAt.toIso8601String(),
@@ -166,9 +194,13 @@ class FirebaseSyncService implements SyncService {
   };
 
   Note _noteFromMap(String id, Map<String, dynamic> data) {
-    final paths = (data['imagePaths'] as List<dynamic>?)
+    final paths =
+        (data['imagePaths'] as List<dynamic>?)
             ?.map((e) => e.toString())
             .toList() ??
+        const <String>[];
+    final tags =
+        (data['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
         const <String>[];
     return Note(
       id: id,
@@ -177,11 +209,14 @@ class FirebaseSyncService implements SyncService {
       bodyDelta: data['bodyDelta'] as String? ?? '[{"insert":"\\n"}]',
       plainTextPreview: data['plainTextPreview'] as String? ?? '',
       imagePaths: paths,
+      tags: tags,
       isPinned: data['isPinned'] as bool? ?? false,
       sortIndex: (data['sortIndex'] as num?)?.toInt() ?? 0,
-      createdAt: DateTime.tryParse(data['createdAt'] as String? ?? '')?.toUtc() ??
+      createdAt:
+          DateTime.tryParse(data['createdAt'] as String? ?? '')?.toUtc() ??
           DateTime.now().toUtc(),
-      updatedAt: DateTime.tryParse(data['updatedAt'] as String? ?? '')?.toUtc() ??
+      updatedAt:
+          DateTime.tryParse(data['updatedAt'] as String? ?? '')?.toUtc() ??
           DateTime.now().toUtc(),
       deletedAt: DateTime.tryParse(data['deletedAt'] as String? ?? '')?.toUtc(),
       isDirty: false,

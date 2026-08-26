@@ -16,3 +16,6 @@ class NoteFolder with _$NoteFolder {
 
 /// Sentinel used by UI selection for the unfiled inbox (notes with null folderId).
 const kInboxFolderId = '';
+
+/// Sentinel used by UI selection for soft-deleted notes.
+const kTrashFolderId = '__trash__';

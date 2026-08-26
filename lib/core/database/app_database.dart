@@ -25,7 +25,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -42,6 +42,20 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 4) {
         await m.addColumn(notesTable, notesTable.tags);
+      }
+      if (from < 5) {
+        await m.addColumn(
+          gamificationProfileTable,
+          gamificationProfileTable.weeklyWordsGoal,
+        );
+        await m.addColumn(
+          gamificationProfileTable,
+          gamificationProfileTable.weeklyWordsWritten,
+        );
+        await m.addColumn(
+          gamificationProfileTable,
+          gamificationProfileTable.weekStartDate,
+        );
       }
     },
   );
@@ -72,11 +86,31 @@ class AppDatabase extends _$AppDatabase {
     return query.watch().map((rows) => rows.map(_noteFromRow).toList());
   }
 
+  Stream<List<Note>> watchDeletedNotes() {
+    final query = select(notesTable)
+      ..where((t) => t.deletedAt.isNotNull())
+      ..orderBy([
+        (t) => OrderingTerm(expression: t.deletedAt, mode: OrderingMode.desc),
+      ]);
+    return query.watch().map((rows) => rows.map(_noteFromRow).toList());
+  }
+
+  Stream<int> watchTrashCount() {
+    return (select(notesTable)..where((t) => t.deletedAt.isNotNull()))
+        .watch()
+        .map((rows) => rows.length);
+  }
+
   Future<Note?> getNoteById(String id) async {
     final row = await (select(
       notesTable,
     )..where((t) => t.id.equals(id))).getSingleOrNull();
     return row == null ? null : _noteFromRow(row);
+  }
+
+  Future<List<Note>> allNotesIncludingDeleted() async {
+    final rows = await select(notesTable).get();
+    return rows.map(_noteFromRow).toList();
   }
 
   Future<void> upsertNote(Note note) async {
@@ -93,11 +127,36 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  Future<void> restoreNote(String id) async {
+    await (update(notesTable)..where((t) => t.id.equals(id))).write(
+      NotesTableCompanion(
+        deletedAt: const Value(null),
+        updatedAt: Value(DateTime.now().toUtc()),
+        isDirty: const Value(true),
+      ),
+    );
+  }
+
+  Future<void> hardDeleteNote(String id) async {
+    await (delete(notesTable)..where((t) => t.id.equals(id))).go();
+  }
+
+  Future<int> emptyTrash() async {
+    return (delete(notesTable)..where((t) => t.deletedAt.isNotNull())).go();
+  }
+
   Future<List<Note>> dirtyNotes() async {
     final rows = await (select(
       notesTable,
     )..where((t) => t.isDirty.equals(true))).get();
     return rows.map(_noteFromRow).toList();
+  }
+
+  Future<int> dirtyNoteCount() async {
+    final rows = await (select(
+      notesTable,
+    )..where((t) => t.isDirty.equals(true))).get();
+    return rows.length;
   }
 
   Future<void> markNoteClean(String id, {String? remoteId}) async {
@@ -126,7 +185,6 @@ class AppDatabase extends _$AppDatabase {
   Future<void> moveNoteToFolder(String noteId, String? folderId) async {
     final note = await getNoteById(noteId);
     if (note == null) return;
-    // Rebuild explicitly so folderId can be cleared to null (inbox).
     await upsertNote(
       Note(
         id: note.id,
@@ -135,6 +193,7 @@ class AppDatabase extends _$AppDatabase {
         bodyDelta: note.bodyDelta,
         plainTextPreview: note.plainTextPreview,
         imagePaths: note.imagePaths,
+        tags: note.tags,
         isPinned: note.isPinned,
         sortIndex: note.sortIndex,
         createdAt: note.createdAt,
@@ -267,7 +326,6 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> deleteFolder(String id) async {
-    // Move notes in this folder back to inbox before removing the folder.
     await (update(notesTable)..where((t) => t.folderId.equals(id))).write(
       NotesTableCompanion(
         folderId: const Value(null),
@@ -333,6 +391,9 @@ class AppDatabase extends _$AppDatabase {
             profile.recentActiveDates.map((d) => d.toIso8601String()).toList(),
           ),
         ),
+        weeklyWordsGoal: Value(profile.weeklyWordsGoal),
+        weeklyWordsWritten: Value(profile.weeklyWordsWritten),
+        weekStartDate: Value(profile.weekStartDate),
       ),
     );
   }
@@ -371,6 +432,9 @@ class AppDatabase extends _$AppDatabase {
       totalNotesCreated: row.totalNotesCreated,
       totalWordsWritten: row.totalWordsWritten,
       recentActiveDates: dates,
+      weeklyWordsGoal: row.weeklyWordsGoal,
+      weeklyWordsWritten: row.weeklyWordsWritten,
+      weekStartDate: row.weekStartDate,
     );
   }
 }

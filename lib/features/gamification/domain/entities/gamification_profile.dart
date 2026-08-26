@@ -11,5 +11,8 @@ class GamificationProfile with _$GamificationProfile {
     @Default(0) int totalNotesCreated,
     @Default(0) int totalWordsWritten,
     @Default(<DateTime>[]) List<DateTime> recentActiveDates,
+    @Default(500) int weeklyWordsGoal,
+    @Default(0) int weeklyWordsWritten,
+    DateTime? weekStartDate,
   }) = _GamificationProfile;
 }

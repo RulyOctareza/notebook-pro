@@ -20,6 +20,12 @@ class NoteRepositoryImpl implements NoteRepository {
   }
 
   @override
+  Stream<List<Note>> watchDeletedNotes() => _db.watchDeletedNotes();
+
+  @override
+  Stream<int> watchTrashCount() => _db.watchTrashCount();
+
+  @override
   Future<Note?> getById(String id) => _db.getNoteById(id);
 
   @override
@@ -50,6 +56,15 @@ class NoteRepositoryImpl implements NoteRepository {
   Future<void> softDelete(String id) => _db.softDeleteNote(id);
 
   @override
+  Future<void> restore(String id) => _db.restoreNote(id);
+
+  @override
+  Future<void> hardDelete(String id) => _db.hardDeleteNote(id);
+
+  @override
+  Future<int> emptyTrash() => _db.emptyTrash();
+
+  @override
   Future<void> togglePin(String id) => _db.togglePinNote(id);
 
   @override
@@ -65,5 +80,10 @@ class NoteRepositoryImpl implements NoteRepository {
   @override
   Stream<Map<String, int>> watchAllTagsWithCounts() {
     return _db.watchAllTagsWithCounts();
+  }
+
+  @override
+  Future<List<Note>> allNotesIncludingDeleted() {
+    return _db.allNotesIncludingDeleted();
   }
 }

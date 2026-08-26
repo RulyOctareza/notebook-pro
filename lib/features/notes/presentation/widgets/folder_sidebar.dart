@@ -103,6 +103,18 @@ class FolderSidebar extends ConsumerWidget {
                     ref.read(selectedNoteIdProvider.notifier).state = null;
                   },
                 ),
+                _TrashRow(
+                  count: ref.watch(trashCountProvider).valueOrNull ?? 0,
+                  selected: selected == kTrashFolderId,
+                  selectionColor: selection,
+                  onTap: () {
+                    ref.read(selectedFolderIdProvider.notifier).state =
+                        kTrashFolderId;
+                    ref.read(selectedTagProvider.notifier).state = null;
+                    ref.read(selectedNoteIdProvider.notifier).state = null;
+                  },
+                  onEmpty: () => _emptyTrash(context, ref),
+                ),
                 if (folders.isNotEmpty) ...[
                   Padding(
                     padding: const EdgeInsets.fromLTRB(
@@ -194,6 +206,36 @@ class FolderSidebar extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _emptyTrash(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Empty Trash?'),
+        content: const Text(
+          'Notes in Trash will be permanently deleted. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Empty Trash'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await ref.read(noteRepositoryProvider).emptyTrash();
+    if (ref.read(selectedFolderIdProvider) == kTrashFolderId) {
+      ref.read(selectedNoteIdProvider.notifier).state = null;
+    }
   }
 
   Future<void> _createFolder(BuildContext context, WidgetRef ref) async {
@@ -531,4 +573,84 @@ class _TagRow extends StatelessWidget {
     );
   }
 }
+
+class _TrashRow extends StatelessWidget {
+  const _TrashRow({
+    required this.count,
+    required this.selected,
+    required this.selectionColor,
+    required this.onTap,
+    required this.onEmpty,
+  });
+
+  final int count;
+  final bool selected;
+  final Color selectionColor;
+  final VoidCallback onTap;
+  final VoidCallback onEmpty;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2, top: 4),
+      child: Material(
+        color: selected ? selectionColor : Colors.transparent,
+        borderRadius: BorderRadius.circular(AppRadii.sm),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppRadii.sm),
+          onTap: onTap,
+          onSecondaryTapDown: count == 0
+              ? null
+              : (details) async {
+                  final action = await showMenu<String>(
+                    context: context,
+                    position: RelativeRect.fromLTRB(
+                      details.globalPosition.dx,
+                      details.globalPosition.dy,
+                      details.globalPosition.dx,
+                      details.globalPosition.dy,
+                    ),
+                    items: const [
+                      PopupMenuItem(
+                        value: 'empty',
+                        child: Text('Empty Trash'),
+                      ),
+                    ],
+                  );
+                  if (action == 'empty') onEmpty();
+                },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: 8,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.delete_outline,
+                  size: 16,
+                  color: selected ? theme.colorScheme.error : null,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    'Trash',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight:
+                          selected ? FontWeight.w600 : FontWeight.w500,
+                      color: selected ? theme.colorScheme.error : null,
+                    ),
+                  ),
+                ),
+                Text('$count', style: theme.textTheme.labelSmall),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 

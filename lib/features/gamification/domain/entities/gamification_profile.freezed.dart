@@ -23,6 +23,9 @@ mixin _$GamificationProfile {
   int get totalNotesCreated => throw _privateConstructorUsedError;
   int get totalWordsWritten => throw _privateConstructorUsedError;
   List<DateTime> get recentActiveDates => throw _privateConstructorUsedError;
+  int get weeklyWordsGoal => throw _privateConstructorUsedError;
+  int get weeklyWordsWritten => throw _privateConstructorUsedError;
+  DateTime? get weekStartDate => throw _privateConstructorUsedError;
 
   /// Create a copy of GamificationProfile
   /// with the given fields replaced by the non-null parameter values.
@@ -45,6 +48,9 @@ abstract class $GamificationProfileCopyWith<$Res> {
     int totalNotesCreated,
     int totalWordsWritten,
     List<DateTime> recentActiveDates,
+    int weeklyWordsGoal,
+    int weeklyWordsWritten,
+    DateTime? weekStartDate,
   });
 }
 
@@ -69,6 +75,9 @@ class _$GamificationProfileCopyWithImpl<$Res, $Val extends GamificationProfile>
     Object? totalNotesCreated = null,
     Object? totalWordsWritten = null,
     Object? recentActiveDates = null,
+    Object? weeklyWordsGoal = null,
+    Object? weeklyWordsWritten = null,
+    Object? weekStartDate = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -96,6 +105,18 @@ class _$GamificationProfileCopyWithImpl<$Res, $Val extends GamificationProfile>
                 ? _value.recentActiveDates
                 : recentActiveDates // ignore: cast_nullable_to_non_nullable
                       as List<DateTime>,
+            weeklyWordsGoal: null == weeklyWordsGoal
+                ? _value.weeklyWordsGoal
+                : weeklyWordsGoal // ignore: cast_nullable_to_non_nullable
+                      as int,
+            weeklyWordsWritten: null == weeklyWordsWritten
+                ? _value.weeklyWordsWritten
+                : weeklyWordsWritten // ignore: cast_nullable_to_non_nullable
+                      as int,
+            weekStartDate: freezed == weekStartDate
+                ? _value.weekStartDate
+                : weekStartDate // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
           )
           as $Val,
     );
@@ -118,6 +139,9 @@ abstract class _$$GamificationProfileImplCopyWith<$Res>
     int totalNotesCreated,
     int totalWordsWritten,
     List<DateTime> recentActiveDates,
+    int weeklyWordsGoal,
+    int weeklyWordsWritten,
+    DateTime? weekStartDate,
   });
 }
 
@@ -141,6 +165,9 @@ class __$$GamificationProfileImplCopyWithImpl<$Res>
     Object? totalNotesCreated = null,
     Object? totalWordsWritten = null,
     Object? recentActiveDates = null,
+    Object? weeklyWordsGoal = null,
+    Object? weeklyWordsWritten = null,
+    Object? weekStartDate = freezed,
   }) {
     return _then(
       _$GamificationProfileImpl(
@@ -168,6 +195,18 @@ class __$$GamificationProfileImplCopyWithImpl<$Res>
             ? _value._recentActiveDates
             : recentActiveDates // ignore: cast_nullable_to_non_nullable
                   as List<DateTime>,
+        weeklyWordsGoal: null == weeklyWordsGoal
+            ? _value.weeklyWordsGoal
+            : weeklyWordsGoal // ignore: cast_nullable_to_non_nullable
+                  as int,
+        weeklyWordsWritten: null == weeklyWordsWritten
+            ? _value.weeklyWordsWritten
+            : weeklyWordsWritten // ignore: cast_nullable_to_non_nullable
+                  as int,
+        weekStartDate: freezed == weekStartDate
+            ? _value.weekStartDate
+            : weekStartDate // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
       ),
     );
   }
@@ -183,6 +222,9 @@ class _$GamificationProfileImpl implements _GamificationProfile {
     this.totalNotesCreated = 0,
     this.totalWordsWritten = 0,
     final List<DateTime> recentActiveDates = const <DateTime>[],
+    this.weeklyWordsGoal = 500,
+    this.weeklyWordsWritten = 0,
+    this.weekStartDate,
   }) : _recentActiveDates = recentActiveDates;
 
   @override
@@ -210,8 +252,17 @@ class _$GamificationProfileImpl implements _GamificationProfile {
   }
 
   @override
+  @JsonKey()
+  final int weeklyWordsGoal;
+  @override
+  @JsonKey()
+  final int weeklyWordsWritten;
+  @override
+  final DateTime? weekStartDate;
+
+  @override
   String toString() {
-    return 'GamificationProfile(currentStreak: $currentStreak, longestStreak: $longestStreak, lastActiveDate: $lastActiveDate, totalNotesCreated: $totalNotesCreated, totalWordsWritten: $totalWordsWritten, recentActiveDates: $recentActiveDates)';
+    return 'GamificationProfile(currentStreak: $currentStreak, longestStreak: $longestStreak, lastActiveDate: $lastActiveDate, totalNotesCreated: $totalNotesCreated, totalWordsWritten: $totalWordsWritten, recentActiveDates: $recentActiveDates, weeklyWordsGoal: $weeklyWordsGoal, weeklyWordsWritten: $weeklyWordsWritten, weekStartDate: $weekStartDate)';
   }
 
   @override
@@ -232,7 +283,13 @@ class _$GamificationProfileImpl implements _GamificationProfile {
             const DeepCollectionEquality().equals(
               other._recentActiveDates,
               _recentActiveDates,
-            ));
+            ) &&
+            (identical(other.weeklyWordsGoal, weeklyWordsGoal) ||
+                other.weeklyWordsGoal == weeklyWordsGoal) &&
+            (identical(other.weeklyWordsWritten, weeklyWordsWritten) ||
+                other.weeklyWordsWritten == weeklyWordsWritten) &&
+            (identical(other.weekStartDate, weekStartDate) ||
+                other.weekStartDate == weekStartDate));
   }
 
   @override
@@ -244,6 +301,9 @@ class _$GamificationProfileImpl implements _GamificationProfile {
     totalNotesCreated,
     totalWordsWritten,
     const DeepCollectionEquality().hash(_recentActiveDates),
+    weeklyWordsGoal,
+    weeklyWordsWritten,
+    weekStartDate,
   );
 
   /// Create a copy of GamificationProfile
@@ -266,6 +326,9 @@ abstract class _GamificationProfile implements GamificationProfile {
     final int totalNotesCreated,
     final int totalWordsWritten,
     final List<DateTime> recentActiveDates,
+    final int weeklyWordsGoal,
+    final int weeklyWordsWritten,
+    final DateTime? weekStartDate,
   }) = _$GamificationProfileImpl;
 
   @override
@@ -280,6 +343,12 @@ abstract class _GamificationProfile implements GamificationProfile {
   int get totalWordsWritten;
   @override
   List<DateTime> get recentActiveDates;
+  @override
+  int get weeklyWordsGoal;
+  @override
+  int get weeklyWordsWritten;
+  @override
+  DateTime? get weekStartDate;
 
   /// Create a copy of GamificationProfile
   /// with the given fields replaced by the non-null parameter values.

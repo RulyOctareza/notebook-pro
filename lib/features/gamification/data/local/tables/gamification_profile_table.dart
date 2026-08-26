@@ -10,6 +10,10 @@ class GamificationProfileTable extends Table {
   IntColumn get totalWordsWritten => integer().withDefault(const Constant(0))();
   TextColumn get recentActiveDatesJson =>
       text().withDefault(const Constant('[]'))();
+  IntColumn get weeklyWordsGoal => integer().withDefault(const Constant(500))();
+  IntColumn get weeklyWordsWritten =>
+      integer().withDefault(const Constant(0))();
+  DateTimeColumn get weekStartDate => dateTime().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

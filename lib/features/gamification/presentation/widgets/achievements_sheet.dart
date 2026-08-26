@@ -5,6 +5,7 @@ import 'package:notebook_pro/core/theme/app_spacing.dart';
 import 'package:notebook_pro/core/theme/gamification_colors.dart';
 import 'package:notebook_pro/features/gamification/domain/achievement_catalog.dart';
 import 'package:notebook_pro/features/gamification/domain/entities/achievement.dart';
+import 'package:notebook_pro/features/gamification/domain/entities/gamification_profile.dart';
 import 'package:notebook_pro/features/gamification/presentation/providers/gamification_providers.dart';
 
 class AchievementsSheet {
@@ -51,6 +52,12 @@ class _AchievementsDialog extends ConsumerWidget {
               Text('day streak', style: theme.textTheme.labelSmall),
               const SizedBox(height: AppSpacing.lg),
               _HeatStrip(recent: recent, accent: colors.streak),
+              if (profile != null) ...[
+                const SizedBox(height: AppSpacing.lg),
+                Text('Weekly goal', style: theme.textTheme.bodyMedium),
+                const SizedBox(height: AppSpacing.sm),
+                _WeeklyGoalBar(profile: profile),
+              ],
               const SizedBox(height: AppSpacing.xl),
               Text('Achievements', style: theme.textTheme.bodyMedium),
               const SizedBox(height: AppSpacing.md),
@@ -114,6 +121,39 @@ class _HeatStrip extends StatelessWidget {
   }
 }
 
+class _WeeklyGoalBar extends StatelessWidget {
+  const _WeeklyGoalBar({required this.profile});
+
+  final GamificationProfile profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.extension<GamificationColors>()!;
+    final goal = profile.weeklyWordsGoal <= 0 ? 500 : profile.weeklyWordsGoal;
+    final progress = (profile.weeklyWordsWritten / goal).clamp(0.0, 1.0);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadii.sm),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: 8,
+            backgroundColor: colors.badgeLocked.withValues(alpha: 0.25),
+            color: colors.streak,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          '${profile.weeklyWordsWritten} / $goal words this week',
+          style: theme.textTheme.labelSmall,
+        ),
+      ],
+    );
+  }
+}
+
 class _BadgeMedallion extends StatelessWidget {
   const _BadgeMedallion({required this.achievement, required this.unlocked});
 
@@ -127,7 +167,14 @@ class _BadgeMedallion extends StatelessWidget {
       IconKind.firstNote => Icons.edit_note_outlined,
       IconKind.streak3 => Icons.local_fire_department_outlined,
       IconKind.streak7 => Icons.emoji_events_outlined,
+      IconKind.streak30 => Icons.whatshot_outlined,
+      IconKind.streak100 => Icons.military_tech_outlined,
       IconKind.words1000 => Icons.menu_book_outlined,
+      IconKind.words5000 => Icons.auto_stories_outlined,
+      IconKind.words10000 => Icons.library_books_outlined,
+      IconKind.notes10 => Icons.sticky_note_2_outlined,
+      IconKind.notes50 => Icons.collections_bookmark_outlined,
+      IconKind.notes100 => Icons.workspace_premium_outlined,
     };
 
     return Tooltip(

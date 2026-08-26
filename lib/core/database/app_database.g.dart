@@ -1349,6 +1349,41 @@ class $GamificationProfileTableTable extends GamificationProfileTable
         requiredDuringInsert: false,
         defaultValue: const Constant('[]'),
       );
+  static const VerificationMeta _weeklyWordsGoalMeta = const VerificationMeta(
+    'weeklyWordsGoal',
+  );
+  @override
+  late final GeneratedColumn<int> weeklyWordsGoal = GeneratedColumn<int>(
+    'weekly_words_goal',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(500),
+  );
+  static const VerificationMeta _weeklyWordsWrittenMeta =
+      const VerificationMeta('weeklyWordsWritten');
+  @override
+  late final GeneratedColumn<int> weeklyWordsWritten = GeneratedColumn<int>(
+    'weekly_words_written',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _weekStartDateMeta = const VerificationMeta(
+    'weekStartDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> weekStartDate =
+      GeneratedColumn<DateTime>(
+        'week_start_date',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1358,6 +1393,9 @@ class $GamificationProfileTableTable extends GamificationProfileTable
     totalNotesCreated,
     totalWordsWritten,
     recentActiveDatesJson,
+    weeklyWordsGoal,
+    weeklyWordsWritten,
+    weekStartDate,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1428,6 +1466,33 @@ class $GamificationProfileTableTable extends GamificationProfileTable
         ),
       );
     }
+    if (data.containsKey('weekly_words_goal')) {
+      context.handle(
+        _weeklyWordsGoalMeta,
+        weeklyWordsGoal.isAcceptableOrUnknown(
+          data['weekly_words_goal']!,
+          _weeklyWordsGoalMeta,
+        ),
+      );
+    }
+    if (data.containsKey('weekly_words_written')) {
+      context.handle(
+        _weeklyWordsWrittenMeta,
+        weeklyWordsWritten.isAcceptableOrUnknown(
+          data['weekly_words_written']!,
+          _weeklyWordsWrittenMeta,
+        ),
+      );
+    }
+    if (data.containsKey('week_start_date')) {
+      context.handle(
+        _weekStartDateMeta,
+        weekStartDate.isAcceptableOrUnknown(
+          data['week_start_date']!,
+          _weekStartDateMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1468,6 +1533,18 @@ class $GamificationProfileTableTable extends GamificationProfileTable
         DriftSqlType.string,
         data['${effectivePrefix}recent_active_dates_json'],
       )!,
+      weeklyWordsGoal: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}weekly_words_goal'],
+      )!,
+      weeklyWordsWritten: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}weekly_words_written'],
+      )!,
+      weekStartDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}week_start_date'],
+      ),
     );
   }
 
@@ -1486,6 +1563,9 @@ class GamificationProfileTableData extends DataClass
   final int totalNotesCreated;
   final int totalWordsWritten;
   final String recentActiveDatesJson;
+  final int weeklyWordsGoal;
+  final int weeklyWordsWritten;
+  final DateTime? weekStartDate;
   const GamificationProfileTableData({
     required this.id,
     required this.currentStreak,
@@ -1494,6 +1574,9 @@ class GamificationProfileTableData extends DataClass
     required this.totalNotesCreated,
     required this.totalWordsWritten,
     required this.recentActiveDatesJson,
+    required this.weeklyWordsGoal,
+    required this.weeklyWordsWritten,
+    this.weekStartDate,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1507,6 +1590,11 @@ class GamificationProfileTableData extends DataClass
     map['total_notes_created'] = Variable<int>(totalNotesCreated);
     map['total_words_written'] = Variable<int>(totalWordsWritten);
     map['recent_active_dates_json'] = Variable<String>(recentActiveDatesJson);
+    map['weekly_words_goal'] = Variable<int>(weeklyWordsGoal);
+    map['weekly_words_written'] = Variable<int>(weeklyWordsWritten);
+    if (!nullToAbsent || weekStartDate != null) {
+      map['week_start_date'] = Variable<DateTime>(weekStartDate);
+    }
     return map;
   }
 
@@ -1521,6 +1609,11 @@ class GamificationProfileTableData extends DataClass
       totalNotesCreated: Value(totalNotesCreated),
       totalWordsWritten: Value(totalWordsWritten),
       recentActiveDatesJson: Value(recentActiveDatesJson),
+      weeklyWordsGoal: Value(weeklyWordsGoal),
+      weeklyWordsWritten: Value(weeklyWordsWritten),
+      weekStartDate: weekStartDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(weekStartDate),
     );
   }
 
@@ -1539,6 +1632,9 @@ class GamificationProfileTableData extends DataClass
       recentActiveDatesJson: serializer.fromJson<String>(
         json['recentActiveDatesJson'],
       ),
+      weeklyWordsGoal: serializer.fromJson<int>(json['weeklyWordsGoal']),
+      weeklyWordsWritten: serializer.fromJson<int>(json['weeklyWordsWritten']),
+      weekStartDate: serializer.fromJson<DateTime?>(json['weekStartDate']),
     );
   }
   @override
@@ -1552,6 +1648,9 @@ class GamificationProfileTableData extends DataClass
       'totalNotesCreated': serializer.toJson<int>(totalNotesCreated),
       'totalWordsWritten': serializer.toJson<int>(totalWordsWritten),
       'recentActiveDatesJson': serializer.toJson<String>(recentActiveDatesJson),
+      'weeklyWordsGoal': serializer.toJson<int>(weeklyWordsGoal),
+      'weeklyWordsWritten': serializer.toJson<int>(weeklyWordsWritten),
+      'weekStartDate': serializer.toJson<DateTime?>(weekStartDate),
     };
   }
 
@@ -1563,6 +1662,9 @@ class GamificationProfileTableData extends DataClass
     int? totalNotesCreated,
     int? totalWordsWritten,
     String? recentActiveDatesJson,
+    int? weeklyWordsGoal,
+    int? weeklyWordsWritten,
+    Value<DateTime?> weekStartDate = const Value.absent(),
   }) => GamificationProfileTableData(
     id: id ?? this.id,
     currentStreak: currentStreak ?? this.currentStreak,
@@ -1573,6 +1675,11 @@ class GamificationProfileTableData extends DataClass
     totalNotesCreated: totalNotesCreated ?? this.totalNotesCreated,
     totalWordsWritten: totalWordsWritten ?? this.totalWordsWritten,
     recentActiveDatesJson: recentActiveDatesJson ?? this.recentActiveDatesJson,
+    weeklyWordsGoal: weeklyWordsGoal ?? this.weeklyWordsGoal,
+    weeklyWordsWritten: weeklyWordsWritten ?? this.weeklyWordsWritten,
+    weekStartDate: weekStartDate.present
+        ? weekStartDate.value
+        : this.weekStartDate,
   );
   GamificationProfileTableData copyWithCompanion(
     GamificationProfileTableCompanion data,
@@ -1597,6 +1704,15 @@ class GamificationProfileTableData extends DataClass
       recentActiveDatesJson: data.recentActiveDatesJson.present
           ? data.recentActiveDatesJson.value
           : this.recentActiveDatesJson,
+      weeklyWordsGoal: data.weeklyWordsGoal.present
+          ? data.weeklyWordsGoal.value
+          : this.weeklyWordsGoal,
+      weeklyWordsWritten: data.weeklyWordsWritten.present
+          ? data.weeklyWordsWritten.value
+          : this.weeklyWordsWritten,
+      weekStartDate: data.weekStartDate.present
+          ? data.weekStartDate.value
+          : this.weekStartDate,
     );
   }
 
@@ -1609,7 +1725,10 @@ class GamificationProfileTableData extends DataClass
           ..write('lastActiveDate: $lastActiveDate, ')
           ..write('totalNotesCreated: $totalNotesCreated, ')
           ..write('totalWordsWritten: $totalWordsWritten, ')
-          ..write('recentActiveDatesJson: $recentActiveDatesJson')
+          ..write('recentActiveDatesJson: $recentActiveDatesJson, ')
+          ..write('weeklyWordsGoal: $weeklyWordsGoal, ')
+          ..write('weeklyWordsWritten: $weeklyWordsWritten, ')
+          ..write('weekStartDate: $weekStartDate')
           ..write(')'))
         .toString();
   }
@@ -1623,6 +1742,9 @@ class GamificationProfileTableData extends DataClass
     totalNotesCreated,
     totalWordsWritten,
     recentActiveDatesJson,
+    weeklyWordsGoal,
+    weeklyWordsWritten,
+    weekStartDate,
   );
   @override
   bool operator ==(Object other) =>
@@ -1634,7 +1756,10 @@ class GamificationProfileTableData extends DataClass
           other.lastActiveDate == this.lastActiveDate &&
           other.totalNotesCreated == this.totalNotesCreated &&
           other.totalWordsWritten == this.totalWordsWritten &&
-          other.recentActiveDatesJson == this.recentActiveDatesJson);
+          other.recentActiveDatesJson == this.recentActiveDatesJson &&
+          other.weeklyWordsGoal == this.weeklyWordsGoal &&
+          other.weeklyWordsWritten == this.weeklyWordsWritten &&
+          other.weekStartDate == this.weekStartDate);
 }
 
 class GamificationProfileTableCompanion
@@ -1646,6 +1771,9 @@ class GamificationProfileTableCompanion
   final Value<int> totalNotesCreated;
   final Value<int> totalWordsWritten;
   final Value<String> recentActiveDatesJson;
+  final Value<int> weeklyWordsGoal;
+  final Value<int> weeklyWordsWritten;
+  final Value<DateTime?> weekStartDate;
   const GamificationProfileTableCompanion({
     this.id = const Value.absent(),
     this.currentStreak = const Value.absent(),
@@ -1654,6 +1782,9 @@ class GamificationProfileTableCompanion
     this.totalNotesCreated = const Value.absent(),
     this.totalWordsWritten = const Value.absent(),
     this.recentActiveDatesJson = const Value.absent(),
+    this.weeklyWordsGoal = const Value.absent(),
+    this.weeklyWordsWritten = const Value.absent(),
+    this.weekStartDate = const Value.absent(),
   });
   GamificationProfileTableCompanion.insert({
     this.id = const Value.absent(),
@@ -1663,6 +1794,9 @@ class GamificationProfileTableCompanion
     this.totalNotesCreated = const Value.absent(),
     this.totalWordsWritten = const Value.absent(),
     this.recentActiveDatesJson = const Value.absent(),
+    this.weeklyWordsGoal = const Value.absent(),
+    this.weeklyWordsWritten = const Value.absent(),
+    this.weekStartDate = const Value.absent(),
   });
   static Insertable<GamificationProfileTableData> custom({
     Expression<int>? id,
@@ -1672,6 +1806,9 @@ class GamificationProfileTableCompanion
     Expression<int>? totalNotesCreated,
     Expression<int>? totalWordsWritten,
     Expression<String>? recentActiveDatesJson,
+    Expression<int>? weeklyWordsGoal,
+    Expression<int>? weeklyWordsWritten,
+    Expression<DateTime>? weekStartDate,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1682,6 +1819,10 @@ class GamificationProfileTableCompanion
       if (totalWordsWritten != null) 'total_words_written': totalWordsWritten,
       if (recentActiveDatesJson != null)
         'recent_active_dates_json': recentActiveDatesJson,
+      if (weeklyWordsGoal != null) 'weekly_words_goal': weeklyWordsGoal,
+      if (weeklyWordsWritten != null)
+        'weekly_words_written': weeklyWordsWritten,
+      if (weekStartDate != null) 'week_start_date': weekStartDate,
     });
   }
 
@@ -1693,6 +1834,9 @@ class GamificationProfileTableCompanion
     Value<int>? totalNotesCreated,
     Value<int>? totalWordsWritten,
     Value<String>? recentActiveDatesJson,
+    Value<int>? weeklyWordsGoal,
+    Value<int>? weeklyWordsWritten,
+    Value<DateTime?>? weekStartDate,
   }) {
     return GamificationProfileTableCompanion(
       id: id ?? this.id,
@@ -1703,6 +1847,9 @@ class GamificationProfileTableCompanion
       totalWordsWritten: totalWordsWritten ?? this.totalWordsWritten,
       recentActiveDatesJson:
           recentActiveDatesJson ?? this.recentActiveDatesJson,
+      weeklyWordsGoal: weeklyWordsGoal ?? this.weeklyWordsGoal,
+      weeklyWordsWritten: weeklyWordsWritten ?? this.weeklyWordsWritten,
+      weekStartDate: weekStartDate ?? this.weekStartDate,
     );
   }
 
@@ -1732,6 +1879,15 @@ class GamificationProfileTableCompanion
         recentActiveDatesJson.value,
       );
     }
+    if (weeklyWordsGoal.present) {
+      map['weekly_words_goal'] = Variable<int>(weeklyWordsGoal.value);
+    }
+    if (weeklyWordsWritten.present) {
+      map['weekly_words_written'] = Variable<int>(weeklyWordsWritten.value);
+    }
+    if (weekStartDate.present) {
+      map['week_start_date'] = Variable<DateTime>(weekStartDate.value);
+    }
     return map;
   }
 
@@ -1744,7 +1900,10 @@ class GamificationProfileTableCompanion
           ..write('lastActiveDate: $lastActiveDate, ')
           ..write('totalNotesCreated: $totalNotesCreated, ')
           ..write('totalWordsWritten: $totalWordsWritten, ')
-          ..write('recentActiveDatesJson: $recentActiveDatesJson')
+          ..write('recentActiveDatesJson: $recentActiveDatesJson, ')
+          ..write('weeklyWordsGoal: $weeklyWordsGoal, ')
+          ..write('weeklyWordsWritten: $weeklyWordsWritten, ')
+          ..write('weekStartDate: $weekStartDate')
           ..write(')'))
         .toString();
   }
@@ -2634,6 +2793,9 @@ typedef $$GamificationProfileTableTableCreateCompanionBuilder =
       Value<int> totalNotesCreated,
       Value<int> totalWordsWritten,
       Value<String> recentActiveDatesJson,
+      Value<int> weeklyWordsGoal,
+      Value<int> weeklyWordsWritten,
+      Value<DateTime?> weekStartDate,
     });
 typedef $$GamificationProfileTableTableUpdateCompanionBuilder =
     GamificationProfileTableCompanion Function({
@@ -2644,6 +2806,9 @@ typedef $$GamificationProfileTableTableUpdateCompanionBuilder =
       Value<int> totalNotesCreated,
       Value<int> totalWordsWritten,
       Value<String> recentActiveDatesJson,
+      Value<int> weeklyWordsGoal,
+      Value<int> weeklyWordsWritten,
+      Value<DateTime?> weekStartDate,
     });
 
 class $$GamificationProfileTableTableFilterComposer
@@ -2687,6 +2852,21 @@ class $$GamificationProfileTableTableFilterComposer
 
   ColumnFilters<String> get recentActiveDatesJson => $composableBuilder(
     column: $table.recentActiveDatesJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get weeklyWordsGoal => $composableBuilder(
+    column: $table.weeklyWordsGoal,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get weeklyWordsWritten => $composableBuilder(
+    column: $table.weeklyWordsWritten,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get weekStartDate => $composableBuilder(
+    column: $table.weekStartDate,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -2734,6 +2914,21 @@ class $$GamificationProfileTableTableOrderingComposer
     column: $table.recentActiveDatesJson,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get weeklyWordsGoal => $composableBuilder(
+    column: $table.weeklyWordsGoal,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get weeklyWordsWritten => $composableBuilder(
+    column: $table.weeklyWordsWritten,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get weekStartDate => $composableBuilder(
+    column: $table.weekStartDate,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$GamificationProfileTableTableAnnotationComposer
@@ -2775,6 +2970,21 @@ class $$GamificationProfileTableTableAnnotationComposer
 
   GeneratedColumn<String> get recentActiveDatesJson => $composableBuilder(
     column: $table.recentActiveDatesJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get weeklyWordsGoal => $composableBuilder(
+    column: $table.weeklyWordsGoal,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get weeklyWordsWritten => $composableBuilder(
+    column: $table.weeklyWordsWritten,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get weekStartDate => $composableBuilder(
+    column: $table.weekStartDate,
     builder: (column) => column,
   );
 }
@@ -2832,6 +3042,9 @@ class $$GamificationProfileTableTableTableManager
                 Value<int> totalNotesCreated = const Value.absent(),
                 Value<int> totalWordsWritten = const Value.absent(),
                 Value<String> recentActiveDatesJson = const Value.absent(),
+                Value<int> weeklyWordsGoal = const Value.absent(),
+                Value<int> weeklyWordsWritten = const Value.absent(),
+                Value<DateTime?> weekStartDate = const Value.absent(),
               }) => GamificationProfileTableCompanion(
                 id: id,
                 currentStreak: currentStreak,
@@ -2840,6 +3053,9 @@ class $$GamificationProfileTableTableTableManager
                 totalNotesCreated: totalNotesCreated,
                 totalWordsWritten: totalWordsWritten,
                 recentActiveDatesJson: recentActiveDatesJson,
+                weeklyWordsGoal: weeklyWordsGoal,
+                weeklyWordsWritten: weeklyWordsWritten,
+                weekStartDate: weekStartDate,
               ),
           createCompanionCallback:
               ({
@@ -2850,6 +3066,9 @@ class $$GamificationProfileTableTableTableManager
                 Value<int> totalNotesCreated = const Value.absent(),
                 Value<int> totalWordsWritten = const Value.absent(),
                 Value<String> recentActiveDatesJson = const Value.absent(),
+                Value<int> weeklyWordsGoal = const Value.absent(),
+                Value<int> weeklyWordsWritten = const Value.absent(),
+                Value<DateTime?> weekStartDate = const Value.absent(),
               }) => GamificationProfileTableCompanion.insert(
                 id: id,
                 currentStreak: currentStreak,
@@ -2858,6 +3077,9 @@ class $$GamificationProfileTableTableTableManager
                 totalNotesCreated: totalNotesCreated,
                 totalWordsWritten: totalWordsWritten,
                 recentActiveDatesJson: recentActiveDatesJson,
+                weeklyWordsGoal: weeklyWordsGoal,
+                weeklyWordsWritten: weeklyWordsWritten,
+                weekStartDate: weekStartDate,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

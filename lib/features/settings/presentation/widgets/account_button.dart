@@ -95,12 +95,18 @@ class AccountButton extends ConsumerWidget {
       await ref.read(authServiceProvider).signInWithGoogle();
       await ref.read(syncServiceProvider).pushPendingChanges();
       messenger.showSnackBar(
-        const SnackBar(content: Text('Signed in — notes syncing to your account')),
+        const SnackBar(
+          content: Text('Signed in — notes syncing to your account'),
+        ),
       );
     } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('Sign-in failed: $e')),
-      );
+      final message = e.toString();
+      final friendly = message.contains('keychain')
+          ? 'Sign-in failed: macOS keychain access is missing. '
+              'Rebuild the app after enabling Keychain Sharing '
+              '(DebugProfile/Release.entitlements).'
+          : 'Sign-in failed: $e';
+      messenger.showSnackBar(SnackBar(content: Text(friendly)));
     }
   }
 }

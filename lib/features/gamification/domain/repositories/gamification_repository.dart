@@ -9,4 +9,5 @@ abstract class GamificationRepository {
     int wordsAdded = 0,
     bool noteCreated = false,
   });
+  Future<void> setWeeklyWordsGoal(int goal);
 }

@@ -42,4 +42,12 @@ class GamificationRepositoryImpl implements GamificationRepository {
     }
     return newly.toList();
   }
+
+  @override
+  Future<void> setWeeklyWordsGoal(int goal) async {
+    final current = await _db.getProfile();
+    await _db.saveProfile(
+      current.copyWith(weeklyWordsGoal: goal.clamp(100, 100000)),
+    );
+  }
 }

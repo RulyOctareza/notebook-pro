@@ -1,6 +1,8 @@
 import 'package:notebook_pro/features/gamification/domain/entities/achievement.dart';
 import 'package:notebook_pro/features/gamification/domain/entities/gamification_profile.dart';
 
+const kDefaultWeeklyWordsGoal = 500;
+
 const kAchievementCatalog = <Achievement>[
   Achievement(
     id: 'first_note',
@@ -9,6 +11,30 @@ const kAchievementCatalog = <Achievement>[
     icon: IconKind.firstNote,
     type: AchievementType.noteCount,
     threshold: 1,
+  ),
+  Achievement(
+    id: 'notes_10',
+    title: 'Getting Started',
+    description: 'Created 10 notes',
+    icon: IconKind.notes10,
+    type: AchievementType.noteCount,
+    threshold: 10,
+  ),
+  Achievement(
+    id: 'notes_50',
+    title: 'Notebooker',
+    description: 'Created 50 notes',
+    icon: IconKind.notes50,
+    type: AchievementType.noteCount,
+    threshold: 50,
+  ),
+  Achievement(
+    id: 'notes_100',
+    title: 'Centurion',
+    description: 'Created 100 notes',
+    icon: IconKind.notes100,
+    type: AchievementType.noteCount,
+    threshold: 100,
   ),
   Achievement(
     id: 'streak_3',
@@ -27,12 +53,44 @@ const kAchievementCatalog = <Achievement>[
     threshold: 7,
   ),
   Achievement(
+    id: 'streak_30',
+    title: 'Month Master',
+    description: 'Wrote 30 days in a row',
+    icon: IconKind.streak30,
+    type: AchievementType.streak,
+    threshold: 30,
+  ),
+  Achievement(
+    id: 'streak_100',
+    title: 'Century Flame',
+    description: 'Wrote 100 days in a row',
+    icon: IconKind.streak100,
+    type: AchievementType.streak,
+    threshold: 100,
+  ),
+  Achievement(
     id: 'words_1000',
     title: 'Wordsmith',
     description: 'Wrote 1,000 words total',
     icon: IconKind.words1000,
     type: AchievementType.wordCount,
     threshold: 1000,
+  ),
+  Achievement(
+    id: 'words_5000',
+    title: 'Prolific',
+    description: 'Wrote 5,000 words total',
+    icon: IconKind.words5000,
+    type: AchievementType.wordCount,
+    threshold: 5000,
+  ),
+  Achievement(
+    id: 'words_10000',
+    title: 'Novelist',
+    description: 'Wrote 10,000 words total',
+    icon: IconKind.words10000,
+    type: AchievementType.wordCount,
+    threshold: 10000,
   ),
 ];
 
@@ -57,6 +115,12 @@ Set<String> evaluateNewUnlocks(
 }
 
 DateTime dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+/// Monday of the week containing [d] (local calendar).
+DateTime weekStart(DateTime d) {
+  final day = dateOnly(d);
+  return day.subtract(Duration(days: day.weekday - DateTime.monday));
+}
 
 /// Applies streak rules when the user writes today.
 GamificationProfile applyWritingActivity({
@@ -87,6 +151,14 @@ GamificationProfile applyWritingActivity({
       ? recent.sublist(recent.length - 14)
       : recent;
 
+  final ws = weekStart(now);
+  final storedWeek = profile.weekStartDate == null
+      ? null
+      : dateOnly(profile.weekStartDate!);
+  final weeklyWords = (storedWeek == null || storedWeek != ws)
+      ? wordsAdded.clamp(0, 1 << 30)
+      : profile.weeklyWordsWritten + wordsAdded;
+
   return profile.copyWith(
     currentStreak: streak,
     longestStreak: streak > profile.longestStreak
@@ -96,5 +168,7 @@ GamificationProfile applyWritingActivity({
     totalNotesCreated: profile.totalNotesCreated + (noteCreated ? 1 : 0),
     totalWordsWritten: profile.totalWordsWritten + wordsAdded,
     recentActiveDates: trimmed,
+    weeklyWordsWritten: weeklyWords,
+    weekStartDate: ws,
   );
 }

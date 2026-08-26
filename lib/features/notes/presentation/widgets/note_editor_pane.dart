@@ -28,6 +28,7 @@ import 'package:notebook_pro/features/notes/presentation/providers/notes_provide
 import 'package:notebook_pro/features/notes/presentation/widgets/command_palette_dialog.dart';
 import 'package:notebook_pro/features/notes/presentation/widgets/export_note_dialog.dart';
 import 'package:notebook_pro/features/notes/presentation/widgets/note_editor_toolbar.dart';
+import 'package:notebook_pro/features/settings/presentation/providers/app_prefs_providers.dart';
 import 'package:notebook_pro/features/settings/presentation/providers/editor_zoom_provider.dart';
 
 class NoteEditorPane extends ConsumerStatefulWidget {
@@ -46,11 +47,15 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane>
   final _titleFocus = FocusNode();
   final _editorFocus = FocusNode();
   final _editorScroll = ScrollController();
+  final _findController = TextEditingController();
+  final _findFocus = FocusNode();
   final _debouncer = Debouncer();
   Note? _note;
   late final AnimationController _enterAnim;
   String? _loadedId;
   int _lastWordCount = 0;
+  int _findMatchIndex = 0;
+  List<int> _findMatches = const [];
 
   /// When true, title tracks the first ≤6 words of the body.
   bool _titleIsAuto = true;
@@ -423,6 +428,56 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane>
     _editorFocus.requestFocus();
   }
 
+  void _toggleFormat(Attribute attribute) {
+    final quill = _quill;
+    if (quill == null) return;
+    final style = quill.getSelectionStyle();
+    final has = style.attributes.containsKey(attribute.key);
+    quill.formatSelection(has ? Attribute.clone(attribute, null) : attribute);
+    _editorFocus.requestFocus();
+  }
+
+  void _runFind(String query) {
+    final quill = _quill;
+    if (quill == null) return;
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) {
+      setState(() {
+        _findMatches = const [];
+        _findMatchIndex = 0;
+      });
+      return;
+    }
+    final plain = quill.document.toPlainText().toLowerCase();
+    final matches = <int>[];
+    var from = 0;
+    while (true) {
+      final i = plain.indexOf(q, from);
+      if (i < 0) break;
+      matches.add(i);
+      from = i + q.length;
+    }
+    setState(() {
+      _findMatches = matches;
+      _findMatchIndex = matches.isEmpty ? 0 : 0;
+    });
+    if (matches.isNotEmpty) _jumpToFindMatch(0);
+  }
+
+  void _jumpToFindMatch(int index) {
+    final quill = _quill;
+    if (quill == null || _findMatches.isEmpty) return;
+    final i = index % _findMatches.length;
+    final start = _findMatches[i];
+    final len = _findController.text.trim().length;
+    setState(() => _findMatchIndex = i);
+    quill.updateSelection(
+      TextSelection(baseOffset: start, extentOffset: start + len),
+      ChangeSource.local,
+    );
+    _editorFocus.requestFocus();
+  }
+
   Future<void> _embedImagePath(String destPath) async {
     final quill = _quill;
     if (quill == null) return;
@@ -488,6 +543,8 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane>
     _titleFocus.dispose();
     _editorFocus.dispose();
     _editorScroll.dispose();
+    _findController.dispose();
+    _findFocus.dispose();
     _enterAnim.dispose();
     _debouncer.dispose();
     super.dispose();
@@ -524,173 +581,209 @@ class _NoteEditorPaneState extends ConsumerState<NoteEditorPane>
     final edited = DateFormat.MMMd().add_jm().format(note.updatedAt.toLocal());
     final zoom = ref.watch(editorZoomProvider);
     final zoomLabel = zoom == 1.0 ? null : ' · ${(zoom * 100).round()}%';
+    final focusMode = ref.watch(focusModeProvider);
+    final showFind = ref.watch(findInNoteVisibleProvider);
 
-    return ColoredBox(
-      color: editorBg,
-      child: Column(
-        children: [
-          NoteEditorToolbar(
-            controller: quill,
-            onInsertLink: _insertLink,
-            onInsertImage: _insertImage,
-            onExport: () => ExportNoteDialog.show(context, _note!),
-            onCommandPalette: () => CommandPaletteDialog.show(context),
-            onAfterFormat: () => _editorFocus.requestFocus(),
-          ),
-          Expanded(
-            child: FadeTransition(
-              opacity: _enterAnim,
-              child: SlideTransition(
-                position:
-                    Tween<Offset>(
-                      begin: const Offset(0, 0.02),
-                      end: Offset.zero,
-                    ).animate(
-                      CurvedAnimation(
-                        parent: _enterAnim,
-                        curve: Curves.easeOutCubic,
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyB, meta: true): () =>
+            _toggleFormat(Attribute.bold),
+        const SingleActivator(LogicalKeyboardKey.keyB, control: true): () =>
+            _toggleFormat(Attribute.bold),
+        const SingleActivator(LogicalKeyboardKey.keyI, meta: true): () =>
+            _toggleFormat(Attribute.italic),
+        const SingleActivator(LogicalKeyboardKey.keyI, control: true): () =>
+            _toggleFormat(Attribute.italic),
+        const SingleActivator(LogicalKeyboardKey.keyU, meta: true): () =>
+            _toggleFormat(Attribute.underline),
+        const SingleActivator(LogicalKeyboardKey.keyU, control: true): () =>
+            _toggleFormat(Attribute.underline),
+      },
+      child: ColoredBox(
+        color: editorBg,
+        child: Column(
+          children: [
+            if (!focusMode)
+              NoteEditorToolbar(
+                controller: quill,
+                onInsertLink: _insertLink,
+                onInsertImage: _insertImage,
+                onExport: () => ExportNoteDialog.show(context, _note!),
+                onCommandPalette: () => CommandPaletteDialog.show(context),
+                onAfterFormat: () => _editorFocus.requestFocus(),
+              ),
+            if (showFind)
+              Material(
+                color: theme.colorScheme.surfaceContainerHighest,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.xs,
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.search, size: 16),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: TextField(
+                          controller: _findController,
+                          focusNode: _findFocus,
+                          autofocus: true,
+                          style: theme.textTheme.bodySmall,
+                          decoration: const InputDecoration(
+                            hintText: 'Find in note',
+                            border: InputBorder.none,
+                            isDense: true,
+                          ),
+                          onChanged: _runFind,
+                          onSubmitted: (_) {
+                            if (_findMatches.isNotEmpty) {
+                              _jumpToFindMatch(_findMatchIndex + 1);
+                            }
+                          },
+                        ),
                       ),
-                    ),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final columnWidth = constraints.maxWidth.clamp(
-                      0.0,
-                      AppLayout.editorMaxContent,
-                    );
-                    final padH = columnWidth < 420
-                        ? AppSpacing.lg
-                        : AppSpacing.xxl;
-                    return Align(
-                      alignment: Alignment.topCenter,
-                      child: Transform.scale(
-                        scale: zoom,
+                      Text(
+                        _findMatches.isEmpty
+                            ? '0'
+                            : '${_findMatchIndex + 1}/${_findMatches.length}',
+                        style: theme.textTheme.labelSmall,
+                      ),
+                      IconButton(
+                        tooltip: 'Previous',
+                        onPressed: _findMatches.isEmpty
+                            ? null
+                            : () => _jumpToFindMatch(_findMatchIndex - 1),
+                        icon: const Icon(Icons.keyboard_arrow_up, size: 18),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      IconButton(
+                        tooltip: 'Next',
+                        onPressed: _findMatches.isEmpty
+                            ? null
+                            : () => _jumpToFindMatch(_findMatchIndex + 1),
+                        icon: const Icon(Icons.keyboard_arrow_down, size: 18),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      IconButton(
+                        tooltip: 'Close',
+                        onPressed: () {
+                          ref.read(findInNoteVisibleProvider.notifier).state =
+                              false;
+                          _findController.clear();
+                          setState(() {
+                            _findMatches = const [];
+                            _findMatchIndex = 0;
+                          });
+                        },
+                        icon: const Icon(Icons.close, size: 16),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            Expanded(
+              child: FadeTransition(
+                opacity: _enterAnim,
+                child: SlideTransition(
+                  position:
+                      Tween<Offset>(
+                        begin: const Offset(0, 0.02),
+                        end: Offset.zero,
+                      ).animate(
+                        CurvedAnimation(
+                          parent: _enterAnim,
+                          curve: Curves.easeOutCubic,
+                        ),
+                      ),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final columnWidth = constraints.maxWidth.clamp(
+                        0.0,
+                        AppLayout.editorMaxContent,
+                      );
+                      final padH = columnWidth < 420
+                          ? AppSpacing.lg
+                          : AppSpacing.xxl;
+                      return Align(
                         alignment: Alignment.topCenter,
-                        filterQuality: FilterQuality.medium,
-                        child: SizedBox(
-                          width: columnWidth,
-                          height: constraints.maxHeight,
-                          child: Padding(
-                            padding: EdgeInsets.fromLTRB(
-                              padH,
-                              AppSpacing.xxl,
-                              padH,
-                              AppSpacing.xl,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                TextField(
-                                  controller: _titleController,
-                                  focusNode: _titleFocus,
-                                  style: theme.textTheme.headlineLarge,
-                                  decoration: InputDecoration(
-                                    hintText: 'Title',
-                                    hintStyle: theme
-                                        .textTheme.headlineLarge
-                                        ?.copyWith(color: tertiary),
-                                    border: InputBorder.none,
-                                    isDense: true,
-                                    contentPadding: EdgeInsets.zero,
+                        child: Transform.scale(
+                          scale: zoom,
+                          alignment: Alignment.topCenter,
+                          filterQuality: FilterQuality.medium,
+                          child: SizedBox(
+                            width: columnWidth,
+                            height: constraints.maxHeight,
+                            child: Padding(
+                              padding: EdgeInsets.fromLTRB(
+                                padH,
+                                AppSpacing.xxl,
+                                padH,
+                                AppSpacing.xl,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  TextField(
+                                    controller: _titleController,
+                                    focusNode: _titleFocus,
+                                    style: theme.textTheme.headlineLarge,
+                                    decoration: InputDecoration(
+                                      hintText: 'Title',
+                                      hintStyle: theme
+                                          .textTheme.headlineLarge
+                                          ?.copyWith(color: tertiary),
+                                      border: InputBorder.none,
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                    onChanged: _onTitleChanged,
                                   ),
-                                  onChanged: _onTitleChanged,
-                                ),
-                                const SizedBox(height: AppSpacing.sm),
-                                Row(
-                                  children: [
-                                    Text(
-                                      'Edited $edited · $words words'
-                                      '${zoomLabel ?? ''}',
-                                      style: theme.textTheme.labelSmall?.copyWith(
-                                        color: tertiary,
-                                      ),
-                                    ),
-                                    const Spacer(),
-                                    IconButton(
-                                      tooltip: 'Export note (PDF, MD, TXT)',
-                                      icon: const Icon(Icons.ios_share_outlined, size: 16),
-                                      visualDensity: VisualDensity.compact,
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-                                      onPressed: () => ExportNoteDialog.show(context, note),
-                                    ),
-                                  ],
-                                ),
-                                if (note.tags.isNotEmpty) ...[
-                                  const SizedBox(height: AppSpacing.xs),
-                                  Wrap(
-                                    spacing: 6,
-                                    runSpacing: 4,
+                                  const SizedBox(height: AppSpacing.sm),
+                                  Row(
                                     children: [
-                                      for (final tag in note.tags)
-                                        InkWell(
-                                          borderRadius: BorderRadius.circular(AppRadii.sm),
-                                          onTap: () {
-                                            ref.read(selectedTagProvider.notifier).state = tag;
-                                          },
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 2,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: theme.colorScheme.primary.withValues(alpha: 0.08),
-                                              borderRadius: BorderRadius.circular(AppRadii.sm),
-                                              border: Border.all(
-                                                color: theme.colorScheme.primary.withValues(alpha: 0.2),
-                                              ),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(Icons.tag, size: 11, color: theme.colorScheme.primary),
-                                                const SizedBox(width: 2),
-                                                Text(
-                                                  tag,
-                                                  style: theme.textTheme.labelSmall?.copyWith(
-                                                    color: theme.colorScheme.primary,
-                                                    fontWeight: FontWeight.w600,
-                                                    fontSize: 11,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
+                                      Text(
+                                        '$edited · $words words${zoomLabel ?? ''}',
+                                        style: theme.textTheme.labelSmall
+                                            ?.copyWith(color: tertiary),
+                                      ),
                                     ],
                                   ),
-                                ],
-                                const SizedBox(height: AppSpacing.xl),
-                                Expanded(
-                                  child: QuillEditor(
-                                    controller: quill,
-                                    focusNode: _editorFocus,
-                                    scrollController: _editorScroll,
-                                    config: QuillEditorConfig(
-                                      placeholder: 'Start writing…',
-                                      padding: EdgeInsets.zero,
-                                      customStyles: _editorStyles(context),
-                                      embedBuilders: [
-                                        _LocalImageEmbedBuilder(),
-                                      ],
+                                  const SizedBox(height: AppSpacing.lg),
+                                  Expanded(
+                                    child: QuillEditor(
+                                      controller: quill,
+                                      focusNode: _editorFocus,
+                                      scrollController: _editorScroll,
+                                      config: QuillEditorConfig(
+                                        placeholder: 'Start writing…',
+                                        padding: EdgeInsets.zero,
+                                        embedBuilders: [
+                                          _LocalImageEmbedBuilder(),
+                                        ],
+                                        customStyles: _editorStyles(context),
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
+
 
 enum _ImageSourceChoice { clipboard, file }
 
