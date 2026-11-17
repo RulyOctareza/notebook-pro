@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/preview/hero.png" alt="Notebook Pro — ilustrasi aplikasi catatan desktop" width="100%">
+  <img src="docs/preview/hero.svg" alt="Notebook Pro — ilustrasi aplikasi catatan desktop" width="100%">
 </p>
 
 <h1 align="center">Notebook Pro</h1>
